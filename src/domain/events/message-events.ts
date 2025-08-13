@@ -3,9 +3,9 @@ import { MessageType } from '@domain/value-objects/message-type.vo';
 
 export class MessageSentEvent extends BaseDomainEvent {
   constructor(
-    messageId: number,
-    public readonly conversationId: number,
-    public readonly senderId: number,
+    messageId: string,
+    public readonly conversationId: string,
+    public readonly senderId: string,
     public readonly content: string,
     public readonly type: MessageType,
   ) {
@@ -29,9 +29,9 @@ export class MessageSentEvent extends BaseDomainEvent {
 
 export class MessageEditedEvent extends BaseDomainEvent {
   constructor(
-    messageId: number,
-    public readonly conversationId: number,
-    public readonly editedBy: number,
+    messageId: string,
+    public readonly conversationId: string,
+    public readonly editedBy: string,
     public readonly oldContent: string,
     public readonly newContent: string,
   ) {
@@ -55,9 +55,9 @@ export class MessageEditedEvent extends BaseDomainEvent {
 
 export class MessageDeletedEvent extends BaseDomainEvent {
   constructor(
-    messageId: number,
-    public readonly conversationId: number,
-    public readonly deletedBy: number,
+    messageId: string,
+    public readonly conversationId: string,
+    public readonly deletedBy: string,
     public readonly deletionType: 'soft' | 'hard',
   ) {
     super(messageId);
@@ -79,9 +79,9 @@ export class MessageDeletedEvent extends BaseDomainEvent {
 
 export class MessageReadEvent extends BaseDomainEvent {
   constructor(
-    messageId: number,
-    public readonly conversationId: number,
-    public readonly readBy: number,
+    messageId: string,
+    public readonly conversationId: string,
+    public readonly readBy: string,
     public readonly readAt: Date,
   ) {
     super(messageId);

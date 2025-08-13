@@ -18,7 +18,7 @@ export class SimpleProfileCacheService {
   /**
    * Get user profile with caching
    */
-  async getUserProfile(userId: number): Promise<UserProfile | null> {
+  async getUserProfile(userId: string): Promise<UserProfile | null> {
     const cacheKey = `user:${userId}`;
     
     // Check cache first
@@ -42,7 +42,7 @@ export class SimpleProfileCacheService {
   /**
    * Get business profile with caching
    */
-  async getBusinessProfile(businessId: number): Promise<BusinessProfile | null> {
+  async getBusinessProfile(businessId: string): Promise<BusinessProfile | null> {
     const cacheKey = `business:${businessId}`;
     
     // Check cache first
@@ -66,9 +66,9 @@ export class SimpleProfileCacheService {
   /**
    * Get multiple user profiles with caching
    */
-  async getUserProfiles(userIds: number[]): Promise<UserProfile[]> {
+  async getUserProfiles(userIds: string[]): Promise<UserProfile[]> {
     const profiles: UserProfile[] = [];
-    const uncachedIds: number[] = [];
+    const uncachedIds: string[] = [];
 
     // Check cache for each user
     for (const userId of userIds) {
@@ -87,9 +87,9 @@ export class SimpleProfileCacheService {
   /**
    * Get multiple business profiles with caching
    */
-  async getBusinessProfiles(businessIds: number[]): Promise<BusinessProfile[]> {
+  async getBusinessProfiles(businessIds: string[]): Promise<BusinessProfile[]> {
     const profiles: BusinessProfile[] = [];
-    const uncachedIds: number[] = [];
+    const uncachedIds: string[] = [];
 
     // Check cache for each business
     for (const businessId of businessIds) {
@@ -109,8 +109,8 @@ export class SimpleProfileCacheService {
    * Batch get profiles with caching (simulates kaha-main-v3 API)
    */
   async getBatchProfiles(request: {
-    user_ids?: number[];
-    business_ids?: number[];
+    user_ids?: string[];
+    business_ids?: string[];
   }): Promise<{
     users: UserProfile[];
     businesses: BusinessProfile[];
@@ -131,7 +131,7 @@ export class SimpleProfileCacheService {
   /**
    * Invalidate cache for a user profile
    */
-  invalidateUserProfile(userId: number): void {
+  invalidateUserProfile(userId: string): void {
     const cacheKey = `user:${userId}`;
     this.cache.delete(cacheKey);
     this.logger.debug(`Invalidated cache for user ${userId}`);
@@ -140,7 +140,7 @@ export class SimpleProfileCacheService {
   /**
    * Invalidate cache for a business profile
    */
-  invalidateBusinessProfile(businessId: number): void {
+  invalidateBusinessProfile(businessId: string): void {
     const cacheKey = `business:${businessId}`;
     this.cache.delete(cacheKey);
     this.logger.debug(`Invalidated cache for business ${businessId}`);

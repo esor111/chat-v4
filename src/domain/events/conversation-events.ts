@@ -4,10 +4,10 @@ import { ParticipantRole } from '@domain/value-objects/participant-role.vo';
 
 export class ConversationCreatedEvent extends BaseDomainEvent {
   constructor(
-    conversationId: number,
+    conversationId: string,
     public readonly type: ConversationType,
-    public readonly createdBy: number,
-    public readonly participants: Array<{ userId: number; role: ParticipantRole }>,
+    public readonly createdBy: string,
+    public readonly participants: Array<{ userId: string; role: ParticipantRole }>,
   ) {
     super(conversationId);
   }
@@ -31,8 +31,8 @@ export class ConversationCreatedEvent extends BaseDomainEvent {
 
 export class ParticipantAddedEvent extends BaseDomainEvent {
   constructor(
-    conversationId: number,
-    public readonly userId: number,
+    conversationId: string,
+    public readonly userId: string,
     public readonly role: ParticipantRole,
     public readonly addedBy: number,
   ) {
@@ -55,9 +55,9 @@ export class ParticipantAddedEvent extends BaseDomainEvent {
 
 export class ParticipantRemovedEvent extends BaseDomainEvent {
   constructor(
-    conversationId: number,
-    public readonly userId: number,
-    public readonly removedBy: number,
+    conversationId: string,
+    public readonly userId: string,
+    public readonly removedBy: string,
     public readonly reason?: string,
   ) {
     super(conversationId);
@@ -79,8 +79,8 @@ export class ParticipantRemovedEvent extends BaseDomainEvent {
 
 export class ConversationArchivedEvent extends BaseDomainEvent {
   constructor(
-    conversationId: number,
-    public readonly archivedBy: number,
+    conversationId: string,
+    public readonly archivedBy: string,
     public readonly reason?: string,
   ) {
     super(conversationId);

@@ -23,8 +23,8 @@ export class ConversationService {
 
   async createConversation(params: {
     type: string;
-    createdBy: number;
-    participants: Array<{ userId: number; role: string }>;
+    createdBy: string;
+    participants: Array<{ userId: string; role: string }>;
     title?: string;
     description?: string;
   }): Promise<Conversation> {
@@ -66,10 +66,10 @@ export class ConversationService {
   }
 
   async addParticipant(
-    conversationId: number,
-    userId: number,
+    conversationId: string,
+    userId: string,
     role: string,
-    addedBy: number,
+    addedBy: string,
   ): Promise<void> {
     this.logger.log('Adding participant to conversation', {
       service: 'ConversationService',
@@ -90,7 +90,7 @@ export class ConversationService {
     }
 
     // Validate user exists
-    const user = await this.userRepository.findOne({ where: { userId } });
+    const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new Error('User not found');
     }
@@ -120,9 +120,9 @@ export class ConversationService {
   }
 
   async removeParticipant(
-    conversationId: number,
-    userId: number,
-    removedBy: number,
+    conversationId: string,
+    userId: string,
+    removedBy: string,
     reason?: string,
   ): Promise<void> {
     this.logger.log('Removing participant from conversation', {
@@ -167,7 +167,7 @@ export class ConversationService {
     });
   }
 
-  async getConversation(conversationId: number, userId: number): Promise<Conversation | null> {
+  async getConversation(conversationId: string, userId: string): Promise<Conversation | null> {
     const conversation = await this.conversationRepository.findOne({
       where: { id: conversationId },
       relations: ['participants', 'messages'],
@@ -186,7 +186,7 @@ export class ConversationService {
     return conversation;
   }
 
-  async getUserConversations(userId: number): Promise<Conversation[]> {
+  async getUserConversations(userId: string): Promise<Conversation[]> {
     const conversations = await this.conversationRepository
       .createQueryBuilder('conversation')
       .innerJoin('conversation.participants', 'participant')
@@ -197,7 +197,7 @@ export class ConversationService {
     return conversations;
   }
 
-  private validateAddParticipant(conversation: Conversation, userId: number, role: string): void {
+  private validateAddParticipant(conversation: Conversation, userId: string, role: string): void {
     // Check if user is already a participant
     const existingParticipant = conversation.participants.find(p => p.userId === userId);
     if (existingParticipant) {

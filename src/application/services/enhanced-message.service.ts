@@ -6,28 +6,28 @@ import { IConversationQueryRepository } from '@domain/repositories/conversation.
 import { StructuredLoggerService } from '@infrastructure/logging/structured-logger.service';
 
 export interface SendMessageRequest {
-  conversationId: number;
-  senderId: number;
+  conversationId: string;
+  senderId: string;
   content: string;
   type?: string;
 }
 
 export interface EditMessageRequest {
-  messageId: number;
+  messageId: string;
   newContent: string;
-  editedBy: number;
+  editedBy: string;
 }
 
 export interface GetMessagesRequest {
-  conversationId: number;
-  userId: number;
+  conversationId: string;
+  userId: string;
   limit?: number;
-  beforeMessageId?: number;
+  beforeMessageId?: string;
 }
 
 export interface SearchMessagesRequest {
-  conversationId: number;
-  userId: number;
+  conversationId: string;
+  userId: string;
   searchTerm: string;
   limit?: number;
 }
@@ -108,7 +108,7 @@ export class EnhancedMessageService {
     return messageWithSender;
   }
 
-  async deleteMessage(messageId: number, deletedBy: number): Promise<void> {
+  async deleteMessage(messageId: string, deletedBy: string): Promise<void> {
     this.logger.log('Deleting message', {
       service: 'EnhancedMessageService',
       operation: 'deleteMessage',
@@ -183,7 +183,7 @@ export class EnhancedMessageService {
     return messages;
   }
 
-  async getUnreadCount(conversationId: number, userId: number): Promise<number> {
+  async getUnreadCount(conversationId: string, userId: string): Promise<number> {
     // Get user's last read message ID
     const participant = await this.participantQueryRepository.findByConversationAndUser(
       conversationId,
@@ -194,11 +194,11 @@ export class EnhancedMessageService {
       throw new Error('User is not a participant in this conversation');
     }
 
-    const lastReadMessageId = participant.lastReadMessageId || 0;
+    const lastReadMessageId = participant.lastReadMessageId || '0';
     return await this.messageRepository.getUnreadMessagesCount(conversationId, lastReadMessageId);
   }
 
-  async getConversationStats(conversationId: number, userId: number): Promise<{
+  async getConversationStats(conversationId: string, userId: string): Promise<{
     totalMessages: number;
     deletedMessages: number;
     messagesByType: Record<string, number>;
@@ -337,7 +337,7 @@ export class EnhancedMessageService {
     };
   }
 
-  private async validateUserIsParticipant(conversationId: number, userId: number): Promise<void> {
+  private async validateUserIsParticipant(conversationId: string, userId: string): Promise<void> {
     const isParticipant = await this.participantQueryRepository.isParticipant(conversationId, userId);
     if (!isParticipant) {
       throw new Error('User is not authorized to access this conversation');

@@ -1,16 +1,21 @@
 export interface JwtPayload {
-  userId: number;
+  // Normalized user identifier. Some tokens may provide `id` instead of `userId`.
+  userId?: string;
+  // Alternate identifier used by external tokens; when present it maps to `userId`.
+  id?: string;
+  // Optional external identifier present in some tokens.
+  kahaId?: string;
   iat?: number;
   exp?: number;
 }
 
 export interface AuthUser {
-  userId: number;
+  userId: string;
 }
 
 export interface IAuthService {
   validateUser(payload: JwtPayload): Promise<AuthUser | null>;
-  generateTokens(userId: number): Promise<{ accessToken: string; refreshToken: string }>;
+  generateTokens(userId: string): Promise<{ accessToken: string; refreshToken: string }>;
   verifyToken(token: string): Promise<JwtPayload>;
   refreshTokens(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }>;
 }

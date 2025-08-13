@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsArray, IsNumber, MaxLength, MinLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsArray, IsUUID, MaxLength, MinLength } from 'class-validator';
 
 export class SendMessageDto {
   @IsString()
@@ -18,8 +18,8 @@ export class CreateConversationDto {
   type: 'direct' | 'group' | 'business';
 
   @IsArray()
-  @IsNumber({}, { each: true })
-  participant_ids: number[];
+  @IsUUID(4, { each: true })
+  participant_ids: string[];
 
   @IsOptional()
   @IsString()
@@ -28,6 +28,6 @@ export class CreateConversationDto {
 }
 
 export class MarkAsReadDto {
-  @IsNumber()
-  message_id: number;
+  @IsUUID(4)
+  message_id: string;
 }

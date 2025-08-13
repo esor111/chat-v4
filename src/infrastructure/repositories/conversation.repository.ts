@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Conversation } from '@domain/entities/conversation.entity';
 import { ConversationType } from '@domain/value-objects/conversation-type.vo';
 import { IConversationRepository, IConversationQueryRepository, IConversationCommandRepository } from '@domain/repositories/conversation.repository.interface';
@@ -14,7 +14,7 @@ export class ConversationRepository implements IConversationRepository {
     private readonly logger: StructuredLoggerService,
   ) {}
 
-  async findById(conversationId: number): Promise<Conversation | null> {
+  async findById(conversationId: string): Promise<Conversation | null> {
     try {
       const conversation = await this.repository.findOne({ where: { id: conversationId } });
       return conversation || null;
@@ -28,7 +28,7 @@ export class ConversationRepository implements IConversationRepository {
     }
   }
 
-  async findByIds(conversationIds: number[], options?: { limit?: number; offset?: number }): Promise<Conversation[]> {
+  async findByIds(conversationIds: string[], options?: { limit?: number; offset?: number }): Promise<Conversation[]> {
     try {
       if (conversationIds.length === 0) {
         return [];
@@ -60,12 +60,12 @@ export class ConversationRepository implements IConversationRepository {
     }
   }
 
-  async findByParticipant(userId: number): Promise<Conversation[]> {
+  async findByParticipant(userId: string): Promise<Conversation[]> {
     try {
       return await this.repository
         .createQueryBuilder('conversation')
-        .innerJoin('conversation.participants', 'participant')
-        .where('participant.userId = :userId', { userId })
+        .innerJoin('participants', 'participant', 'participant.conversation_id = conversation.id')
+        .where('participant.user_id = :userId', { userId })
         .orderBy('conversation.lastActivity', 'DESC')
         .getMany();
     } catch (error) {
@@ -91,13 +91,12 @@ export class ConversationRepository implements IConversationRepository {
       this.logger.error('Failed to save conversation', error, {
         service: 'ConversationRepository',
         operation: 'save',
-        conversationId: conversation.id,
       });
       throw error;
     }
   }
 
-  async delete(conversationId: number): Promise<void> {
+  async delete(conversationId: string): Promise<void> {
     try {
       await this.repository.delete(conversationId);
       this.logger.debug('Conversation deleted successfully', {
@@ -115,13 +114,13 @@ export class ConversationRepository implements IConversationRepository {
     }
   }
 
-  async updateLastActivity(conversationId: number, lastMessageId?: number): Promise<void> {
+  async updateLastActivity(conversationId: string, lastMessageId?: string): Promise<void> {
     try {
       const updateData: any = { lastActivity: new Date() };
       if (lastMessageId) {
         updateData.lastMessageId = lastMessageId;
       }
-      
+
       await this.repository.update(conversationId, updateData);
       this.logger.debug('Conversation last activity updated', {
         service: 'ConversationRepository',
@@ -149,7 +148,7 @@ export class ConversationQueryRepository implements IConversationQueryRepository
     private readonly logger: StructuredLoggerService,
   ) {}
 
-  async findById(conversationId: number): Promise<Conversation | null> {
+  async findById(conversationId: string): Promise<Conversation | null> {
     try {
       const conversation = await this.repository.findOne({ where: { id: conversationId } });
       return conversation || null;
@@ -163,15 +162,17 @@ export class ConversationQueryRepository implements IConversationQueryRepository
     }
   }
 
-  async findByIdWithParticipants(conversationId: number): Promise<Conversation | null> {
+  async findByIdWithParticipants(conversationId: string): Promise<Conversation | null> {
     try {
-      const conversation = await this.repository.findOne({
-        where: { id: conversationId },
-        relations: ['participants'],
-      });
+      const conversation = await this.repository
+        .createQueryBuilder('conversation')
+        .leftJoinAndSelect('conversation.participants', 'participants')
+        .where('conversation.id = :conversationId', { conversationId })
+        .getOne();
+      
       return conversation || null;
     } catch (error) {
-      this.logger.error('Failed to find conversation with participants', error, {
+      this.logger.error('Failed to find conversation by ID with participants', error, {
         service: 'ConversationQueryRepository',
         operation: 'findByIdWithParticipants',
         conversationId,
@@ -180,17 +181,18 @@ export class ConversationQueryRepository implements IConversationQueryRepository
     }
   }
 
-  async findByParticipant(userId: number, limit?: number, offset?: number): Promise<Conversation[]> {
+  async findByParticipant(userId: string, limit?: number, offset?: number): Promise<Conversation[]> {
     try {
       let query = this.repository
         .createQueryBuilder('conversation')
-        .innerJoin('conversation.participants', 'participant')
-        .where('participant.userId = :userId', { userId })
+        .innerJoin('participants', 'participant', 'participant.conversation_id = conversation.id')
+        .where('participant.user_id = :userId', { userId })
         .orderBy('conversation.lastActivity', 'DESC');
 
       if (limit) {
         query = query.limit(limit);
       }
+
       if (offset) {
         query = query.offset(offset);
       }
@@ -210,16 +212,11 @@ export class ConversationQueryRepository implements IConversationQueryRepository
 
   async findByType(type: ConversationType, limit?: number): Promise<Conversation[]> {
     try {
-      let query = this.repository
-        .createQueryBuilder('conversation')
-        .where('conversation.type = :type', { type: type.value })
-        .orderBy('conversation.lastActivity', 'DESC');
-
-      if (limit) {
-        query = query.limit(limit);
-      }
-
-      return await query.getMany();
+      return await this.repository.find({
+        where: { type },
+        order: { lastActivity: 'DESC' },
+        take: limit,
+      });
     } catch (error) {
       this.logger.error('Failed to find conversations by type', error, {
         service: 'ConversationQueryRepository',
@@ -231,16 +228,13 @@ export class ConversationQueryRepository implements IConversationQueryRepository
     }
   }
 
-  async findDirectConversation(user1Id: number, user2Id: number): Promise<Conversation | null> {
+  async findDirectConversation(user1Id: string, user2Id: string): Promise<Conversation | null> {
     try {
       const conversation = await this.repository
         .createQueryBuilder('conversation')
-        .innerJoin('conversation.participants', 'p1')
-        .innerJoin('conversation.participants', 'p2')
+        .innerJoin('participants', 'p1', 'p1.conversation_id = conversation.id AND p1.user_id = :user1Id', { user1Id })
+        .innerJoin('participants', 'p2', 'p2.conversation_id = conversation.id AND p2.user_id = :user2Id', { user2Id })
         .where('conversation.type = :type', { type: 'direct' })
-        .andWhere('p1.userId = :user1Id', { user1Id })
-        .andWhere('p2.userId = :user2Id', { user2Id })
-        .andWhere('p1.userId != p2.userId')
         .getOne();
 
       return conversation || null;
@@ -255,12 +249,12 @@ export class ConversationQueryRepository implements IConversationQueryRepository
     }
   }
 
-  async countByParticipant(userId: number): Promise<number> {
+  async countByParticipant(userId: string): Promise<number> {
     try {
       return await this.repository
         .createQueryBuilder('conversation')
-        .innerJoin('conversation.participants', 'participant')
-        .where('participant.userId = :userId', { userId })
+        .innerJoin('participants', 'participant', 'participant.conversation_id = conversation.id')
+        .where('participant.user_id = :userId', { userId })
         .getCount();
     } catch (error) {
       this.logger.error('Failed to count conversations by participant', error, {
@@ -272,12 +266,12 @@ export class ConversationQueryRepository implements IConversationQueryRepository
     }
   }
 
-  async findRecentConversations(userId: number, limit: number): Promise<Conversation[]> {
+  async findRecentConversations(userId: string, limit: number): Promise<Conversation[]> {
     try {
       return await this.repository
         .createQueryBuilder('conversation')
-        .innerJoin('conversation.participants', 'participant')
-        .where('participant.userId = :userId', { userId })
+        .innerJoin('participants', 'participant', 'participant.conversation_id = conversation.id')
+        .where('participant.user_id = :userId', { userId })
         .orderBy('conversation.lastActivity', 'DESC')
         .limit(limit)
         .getMany();
@@ -314,13 +308,12 @@ export class ConversationCommandRepository implements IConversationCommandReposi
       this.logger.error('Failed to save conversation', error, {
         service: 'ConversationCommandRepository',
         operation: 'save',
-        conversationId: conversation.id,
       });
       throw error;
     }
   }
 
-  async delete(conversationId: number): Promise<void> {
+  async delete(conversationId: string): Promise<void> {
     try {
       await this.repository.delete(conversationId);
       this.logger.debug('Conversation deleted successfully', {
@@ -338,13 +331,13 @@ export class ConversationCommandRepository implements IConversationCommandReposi
     }
   }
 
-  async updateLastActivity(conversationId: number, lastMessageId?: number): Promise<void> {
+  async updateLastActivity(conversationId: string, lastMessageId?: string): Promise<void> {
     try {
       const updateData: any = { lastActivity: new Date() };
       if (lastMessageId) {
         updateData.lastMessageId = lastMessageId;
       }
-      
+
       await this.repository.update(conversationId, updateData);
       this.logger.debug('Conversation last activity updated', {
         service: 'ConversationCommandRepository',
@@ -363,20 +356,21 @@ export class ConversationCommandRepository implements IConversationCommandReposi
     }
   }
 
-  async bulkUpdateLastActivity(updates: Array<{ conversationId: number; lastMessageId?: number }>): Promise<void> {
+  async bulkUpdateLastActivity(updates: Array<{ conversationId: string; lastMessageId?: string }>): Promise<void> {
     try {
       const promises = updates.map(update => 
         this.updateLastActivity(update.conversationId, update.lastMessageId)
       );
+      
       await Promise.all(promises);
       
-      this.logger.debug('Bulk conversation last activity updated', {
+      this.logger.debug('Conversations bulk updated successfully', {
         service: 'ConversationCommandRepository',
         operation: 'bulkUpdateLastActivity',
         count: updates.length,
       });
     } catch (error) {
-      this.logger.error('Failed to bulk update conversation last activity', error, {
+      this.logger.error('Failed to bulk update conversations', error, {
         service: 'ConversationCommandRepository',
         operation: 'bulkUpdateLastActivity',
         count: updates.length,

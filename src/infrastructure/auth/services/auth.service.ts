@@ -24,31 +24,32 @@ export class AuthService implements IAuthService {
 
   async validateUser(payload: JwtPayload): Promise<AuthUser | null> {
     try {
-      // In a real implementation, you might want to check if the user exists
-      // For now, we'll just validate the payload structure
-      if (!payload.userId || payload.userId <= 0) {
-        this.logger.security('Invalid user ID in JWT payload', { userId: payload.userId });
+      // Accept tokens that provide either `userId` or `id` (normalized to userId)
+      const normalizedUserId = (payload.userId ?? payload.id) as string | undefined;
+      if (!normalizedUserId || typeof normalizedUserId !== 'string') {
+        this.logger.security('Invalid user ID in JWT payload', { userId: payload.userId, id: payload.id });
         return null;
       }
 
-      this.logger.debug('User validated successfully', { 
+      this.logger.debug('User validated successfully', {
         service: 'AuthService',
         operation: 'validateUser',
-        userId: payload.userId 
+        userId: normalizedUserId,
+        kahaId: payload.kahaId,
       });
 
-      return { userId: payload.userId };
+      return { userId: normalizedUserId };
     } catch (error) {
       this.logger.error('Failed to validate user', error, {
         service: 'AuthService',
         operation: 'validateUser',
-        userId: payload.userId,
+        userId: payload?.userId ?? payload?.id,
       });
       return null;
     }
   }
 
-  async generateTokens(userId: number): Promise<{ accessToken: string; refreshToken: string }> {
+  async generateTokens(userId: string): Promise<{ accessToken: string; refreshToken: string }> {
     try {
       const payload: JwtPayload = { userId };
 
@@ -82,12 +83,17 @@ export class AuthService implements IAuthService {
 
   async verifyToken(token: string): Promise<JwtPayload> {
     try {
-      const payload = this.tokenService.verify(token, this.jwtSecret);
-      
+      const payload = this.tokenService.verify(token, this.jwtSecret) as JwtPayload;
+      // Normalize: if token contains `id` but not `userId`, map it for downstream consumers
+      if (!payload.userId && payload.id) {
+        payload.userId = payload.id;
+      }
+
       this.logger.debug('Token verified successfully', {
         service: 'AuthService',
         operation: 'verifyToken',
-        userId: payload.userId,
+        userId: payload.userId ?? payload.id,
+        kahaId: payload.kahaId,
       });
 
       return payload;
@@ -102,13 +108,13 @@ export class AuthService implements IAuthService {
 
   async refreshTokens(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
     try {
-      const payload = this.tokenService.verify(refreshToken, this.refreshSecret);
-      
-      if (!payload.userId) {
+      const payload = this.tokenService.verify(refreshToken, this.refreshSecret) as JwtPayload;
+      const normalizedUserId = (payload.userId ?? payload.id) as string | undefined;
+      if (!normalizedUserId) {
         throw new UnauthorizedException('Invalid refresh token payload');
       }
 
-      const tokens = await this.generateTokens(payload.userId);
+      const tokens = await this.generateTokens(normalizedUserId);
 
       this.logger.audit('Tokens refreshed', { userId: payload.userId }, {
         service: 'AuthService',

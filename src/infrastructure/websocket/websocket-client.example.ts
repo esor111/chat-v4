@@ -81,21 +81,21 @@ class ChatClient {
   }
 
   // Join a conversation
-  joinConversation(conversationId: number): void {
+  joinConversation(conversationId: string): void {
     this.socket.emit('join_conversation', {
       conversation_id: conversationId,
     });
   }
 
   // Leave a conversation
-  leaveConversation(conversationId: number): void {
+  leaveConversation(conversationId: string): void {
     this.socket.emit('leave_conversation', {
       conversation_id: conversationId,
     });
   }
 
   // Send a message
-  sendMessage(conversationId: number, content: string, messageType: string = 'text'): void {
+  sendMessage(conversationId: string, content: string, messageType: string = 'text'): void {
     this.socket.emit('send_message', {
       conversation_id: conversationId,
       content,
@@ -104,14 +104,14 @@ class ChatClient {
   }
 
   // Start typing indicator
-  startTyping(conversationId: number): void {
+  startTyping(conversationId: string): void {
     this.socket.emit('typing_start', {
       conversation_id: conversationId,
     });
   }
 
   // Stop typing indicator
-  stopTyping(conversationId: number): void {
+  stopTyping(conversationId: string): void {
     this.socket.emit('typing_stop', {
       conversation_id: conversationId,
     });

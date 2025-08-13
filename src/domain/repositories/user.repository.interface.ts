@@ -1,22 +1,22 @@
 import { User } from '@domain/entities/user.entity';
 
 export interface IUserRepository {
-  findById(userId: number): Promise<User | null>;
-  findByIds(userIds: number[]): Promise<User[]>;
-  exists(userId: number): Promise<boolean>;
+  findById(userId: string): Promise<User | null>;
+  findByIds(userIds: string[]): Promise<User[]>;
+  exists(userId: string): Promise<boolean>;
   save(user: User): Promise<User>;
-  delete(userId: number): Promise<void>;
+  delete(userId: string): Promise<void>;
 }
 
 export interface IUserQueryRepository {
-  findById(userId: number): Promise<User | null>;
-  findByIds(userIds: number[]): Promise<User[]>;
-  exists(userId: number): Promise<boolean>;
-  findActiveUsers(userIds: number[]): Promise<User[]>;
+  findById(userId: string): Promise<User | null>;
+  findByIds(userIds: string[]): Promise<User[]>;
+  exists(userId: string): Promise<boolean>;
+  findActiveUsers(userIds: string[]): Promise<User[]>;
 }
 
 export interface IUserCommandRepository {
   save(user: User): Promise<User>;
-  delete(userId: number): Promise<void>;
+  delete(userId: string): Promise<void>;
   bulkSave(users: User[]): Promise<User[]>;
 }

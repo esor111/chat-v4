@@ -11,6 +11,15 @@ import {
   HttpException,
   Inject,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+  ApiQuery,
+  ApiBody,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '@infrastructure/auth/guards/jwt-auth.guard';
 import { IConversationRepository } from '@domain/repositories/conversation.repository.interface';
 import { IParticipantRepository } from '@domain/repositories/participant.repository.interface';
@@ -19,8 +28,10 @@ import { SimpleProfileCacheService } from '@infrastructure/profile/simple-profil
 import { WebSocketMessageService } from '@application/services/websocket-message.service';
 import { CreateConversationDto, SendMessageDto } from './dto/conversation.dto';
 
+@ApiTags('conversations')
 @Controller('api/conversations')
 @UseGuards(JwtAuthGuard)
+@ApiBearerAuth('JWT-auth')
 export class ConversationsController {
   constructor(
     @Inject('IConversationRepository')
@@ -72,7 +83,7 @@ export class ConversationsController {
       );
 
       // Get unique user IDs for profile fetching
-      const userIds = new Set<number>();
+      const userIds = new Set<string>();
       allParticipants.flat().forEach(p => userIds.add(p.userId));
 
       // Fetch profiles
@@ -134,7 +145,7 @@ export class ConversationsController {
   ) {
     try {
       const userId = req.user.sub;
-      const convId = parseInt(conversationId, 10);
+      const convId = conversationId;
 
       // Check if user is participant
       const participant = await this.participantRepository.findByConversationAndUser(
@@ -211,9 +222,9 @@ export class ConversationsController {
   ) {
     try {
       const userId = req.user.sub;
-      const convId = parseInt(conversationId, 10);
+      const convId = conversationId;
       const limitNum = limit ? parseInt(limit, 10) : 50;
-      const beforeId = beforeMessageId ? parseInt(beforeMessageId, 10) : undefined;
+      const beforeId = beforeMessageId || undefined;
 
       // Check if user is participant
       const participant = await this.participantRepository.findByConversationAndUser(
@@ -286,7 +297,7 @@ export class ConversationsController {
   ) {
     try {
       const userId = req.user.sub;
-      const convId = parseInt(conversationId, 10);
+      const convId = conversationId;
 
       const result = await this.messageService.sendMessage({
         senderId: userId,
@@ -353,12 +364,12 @@ export class ConversationsController {
   @Post(':id/read')
   async markAsRead(
     @Param('id') conversationId: string,
-    @Body() body: { message_id: number },
+    @Body() body: { message_id: string },
     @Request() req: any,
   ) {
     try {
       const userId = req.user.sub;
-      const convId = parseInt(conversationId, 10);
+      const convId = conversationId;
 
       await this.messageService.markMessagesAsRead(
         userId,

@@ -4,7 +4,7 @@ export abstract class BaseDomainEvent {
   public readonly eventVersion: number;
 
   constructor(
-    public readonly aggregateId: string | number,
+    public readonly aggregateId: string,
     eventVersion: number = 1,
   ) {
     this.occurredOn = new Date();

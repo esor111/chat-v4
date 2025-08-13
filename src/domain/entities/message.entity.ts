@@ -7,11 +7,11 @@ import { MessageType } from '@domain/value-objects/message-type.vo';
 
 @Entity('messages')
 export class Message extends BaseEntity {
-  @Column({ name: 'conversation_id' })
-  conversationId: number;
+  @Column({ name: 'conversation_id', type: 'uuid' })
+  conversationId: string;
 
-  @Column({ name: 'sender_id' })
-  senderId: number;
+  @Column({ name: 'sender_id', type: 'uuid' })
+  senderId: string;
 
   @Column({
     type: 'text',

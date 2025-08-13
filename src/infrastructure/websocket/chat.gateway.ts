@@ -14,9 +14,9 @@ import { JwtService } from "@nestjs/jwt";
 import { WsJwtGuard } from "./guards/ws-jwt.guard";
 
 interface AuthenticatedSocket extends Socket {
-  userId?: number;
+  userId?: string;
   user?: {
-    id: number;
+    id: string;
     name?: string;
   };
 }
@@ -46,7 +46,7 @@ export class ChatGateway
   server: Server;
 
   private readonly logger = new Logger(ChatGateway.name);
-  private readonly connectedUsers = new Map<number, AuthenticatedSocket[]>();
+  private readonly connectedUsers = new Map<string, AuthenticatedSocket[]>();
   private messageService: any; // Will be injected later to avoid circular dependency
 
   constructor(private readonly jwtService: JwtService) {}
@@ -337,7 +337,7 @@ export class ChatGateway
    * Send message to specific user (for offline message delivery)
    */
   async sendMessageToUser(
-    userId: number,
+    userId: string,
     event: string,
     data: any
   ): Promise<boolean> {
@@ -363,7 +363,7 @@ export class ChatGateway
    * Send message to conversation room
    */
   async sendMessageToConversation(
-    conversationId: number,
+    conversationId: string,
     event: string,
     data: any
   ): Promise<void> {
@@ -382,7 +382,7 @@ export class ChatGateway
   /**
    * Check if user is connected
    */
-  isUserConnected(userId: number): boolean {
+  isUserConnected(userId: string): boolean {
     const userSockets = this.connectedUsers.get(userId);
     return !!(userSockets && userSockets.length > 0);
   }
@@ -390,7 +390,7 @@ export class ChatGateway
   /**
    * Get user's socket count
    */
-  getUserSocketCount(userId: number): number {
+  getUserSocketCount(userId: string): number {
     const userSockets = this.connectedUsers.get(userId);
     return userSockets ? userSockets.length : 0;
   }
@@ -427,7 +427,7 @@ export class ChatGateway
     }
   }
 
-  private addUserConnection(userId: number, socket: AuthenticatedSocket): void {
+  private addUserConnection(userId: string, socket: AuthenticatedSocket): void {
     if (!this.connectedUsers.has(userId)) {
       this.connectedUsers.set(userId, []);
     }
@@ -435,7 +435,7 @@ export class ChatGateway
   }
 
   private removeUserConnection(
-    userId: number,
+    userId: string,
     socket: AuthenticatedSocket
   ): void {
     const userSockets = this.connectedUsers.get(userId);

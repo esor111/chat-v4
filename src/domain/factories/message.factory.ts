@@ -4,20 +4,20 @@ import { MessageType } from '@domain/value-objects/message-type.vo';
 import { MessageSentEvent } from '@domain/events/message-events';
 
 export interface CreateMessageParams {
-  conversationId: number;
-  senderId: number;
+  conversationId: string;
+  senderId: string;
   content: string;
   type?: string;
 }
 
 export interface CreateSystemMessageParams {
-  conversationId: number;
+  conversationId: string;
   content: string;
-  systemUserId?: number;
+  systemUserId?: string;
 }
 
 export class MessageFactory {
-  private static readonly SYSTEM_USER_ID = 0;
+  private static readonly SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
 
   static create(params: CreateMessageParams): {
     message: Message;
@@ -35,7 +35,7 @@ export class MessageFactory {
 
     // Create domain event
     const event = new MessageSentEvent(
-      0, // Will be set after persistence
+      '', // Will be set after persistence
       params.conversationId,
       params.senderId,
       params.content,
@@ -49,8 +49,8 @@ export class MessageFactory {
   }
 
   static createTextMessage(
-    conversationId: number,
-    senderId: number,
+    conversationId: string,
+    senderId: string,
     content: string,
   ): {
     message: Message;
@@ -65,8 +65,8 @@ export class MessageFactory {
   }
 
   static createImageMessage(
-    conversationId: number,
-    senderId: number,
+    conversationId: string,
+    senderId: string,
     imageUrl: string,
     caption?: string,
   ): {
@@ -84,8 +84,8 @@ export class MessageFactory {
   }
 
   static createFileMessage(
-    conversationId: number,
-    senderId: number,
+    conversationId: string,
+    senderId: string,
     fileUrl: string,
     fileName: string,
     fileSize?: number,
@@ -124,8 +124,8 @@ export class MessageFactory {
   }
 
   static createParticipantJoinedMessage(
-    conversationId: number,
-    joinedUserId: number,
+    conversationId: string,
+    joinedUserId: string,
     joinedUserName: string,
   ): {
     message: Message;
@@ -138,8 +138,8 @@ export class MessageFactory {
   }
 
   static createParticipantLeftMessage(
-    conversationId: number,
-    leftUserId: number,
+    conversationId: string,
+    leftUserId: string,
     leftUserName: string,
   ): {
     message: Message;
@@ -152,7 +152,7 @@ export class MessageFactory {
   }
 
   static createConversationCreatedMessage(
-    conversationId: number,
+    conversationId: string,
     creatorName: string,
     conversationTitle?: string,
   ): {
@@ -170,7 +170,7 @@ export class MessageFactory {
   }
 
   static createBusinessHoursMessage(
-    conversationId: number,
+    conversationId: string,
     businessName: string,
     isOpen: boolean,
   ): {
@@ -188,12 +188,12 @@ export class MessageFactory {
   }
 
   private static validateCreateParams(params: CreateMessageParams): void {
-    if (!params.conversationId || params.conversationId <= 0) {
-      throw new Error('Conversation ID must be a positive number');
+    if (!params.conversationId || typeof params.conversationId !== 'string') {
+      throw new Error('Conversation ID must be a valid UUID string');
     }
 
-    if (!params.senderId || params.senderId < 0) {
-      throw new Error('Sender ID must be a non-negative number');
+    if (!params.senderId || typeof params.senderId !== 'string') {
+      throw new Error('Sender ID must be a valid UUID string');
     }
 
     if (!params.content || typeof params.content !== 'string') {

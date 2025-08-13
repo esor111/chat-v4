@@ -14,7 +14,7 @@ export class CacheExampleService {
   /**
    * Example: Cache user profile data
    */
-  async cacheUserProfile(userId: number, profile: any): Promise<void> {
+  async cacheUserProfile(userId: string, profile: any): Promise<void> {
     const key = `profile:user:${userId}`;
     const ttl = 24 * 60 * 60; // 24 hours
     
@@ -29,7 +29,7 @@ export class CacheExampleService {
   /**
    * Example: Get cached user profile
    */
-  async getUserProfile(userId: number): Promise<any | null> {
+  async getUserProfile(userId: string): Promise<any | null> {
     const key = `profile:user:${userId}`;
     
     try {
@@ -49,7 +49,7 @@ export class CacheExampleService {
   /**
    * Example: Cache presence status
    */
-  async setUserPresence(userId: number, status: 'online' | 'offline'): Promise<void> {
+  async setUserPresence(userId: string, status: 'online' | 'offline'): Promise<void> {
     const key = `presence:${userId}`;
     const ttl = 30; // 30 seconds
     
@@ -64,7 +64,7 @@ export class CacheExampleService {
   /**
    * Example: Get user presence
    */
-  async getUserPresence(userId: number): Promise<string | null> {
+  async getUserPresence(userId: string): Promise<string | null> {
     const key = `presence:${userId}`;
     
     try {
@@ -79,7 +79,7 @@ export class CacheExampleService {
   /**
    * Example: Queue offline messages
    */
-  async queueOfflineMessage(userId: number, messageId: number): Promise<void> {
+  async queueOfflineMessage(userId: string, messageId: string): Promise<void> {
     const key = `queue:${userId}`;
     
     try {
@@ -93,11 +93,11 @@ export class CacheExampleService {
   /**
    * Example: Get queued messages for user
    */
-  async getQueuedMessages(userId: number): Promise<number[]> {
+  async getQueuedMessages(userId: string): Promise<string[]> {
     const key = `queue:${userId}`;
     
     try {
-      const messageIds = await this.cacheService.lrange<number>(key, 0, -1);
+      const messageIds = await this.cacheService.lrange<string>(key, 0, -1);
       if (messageIds.length > 0) {
         // Clear the queue after retrieving
         await this.cacheService.delete(key);
@@ -113,7 +113,7 @@ export class CacheExampleService {
   /**
    * Example: Increment unread count
    */
-  async incrementUnreadCount(userId: number, conversationId: number): Promise<number> {
+  async incrementUnreadCount(userId: string, conversationId: string): Promise<number> {
     const key = `unread:${userId}:${conversationId}`;
     
     try {
@@ -129,7 +129,7 @@ export class CacheExampleService {
   /**
    * Example: Reset unread count
    */
-  async resetUnreadCount(userId: number, conversationId: number): Promise<void> {
+  async resetUnreadCount(userId: string, conversationId: string): Promise<void> {
     const key = `unread:${userId}:${conversationId}`;
     
     try {

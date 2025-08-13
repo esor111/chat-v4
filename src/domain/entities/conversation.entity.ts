@@ -19,8 +19,8 @@ export class Conversation extends BaseEntity {
   @UpdateDateColumn({ name: 'last_activity' })
   lastActivity: Date;
 
-  @Column({ name: 'last_message_id', nullable: true })
-  lastMessageId?: number;
+  @Column({ name: 'last_message_id', nullable: true, type: 'uuid' })
+  lastMessageId?: string;
 
   @OneToMany(() => Participant, participant => participant.conversation, { cascade: true })
   participants: Participant[];

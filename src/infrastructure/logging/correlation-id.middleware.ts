@@ -5,7 +5,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 
 export interface CorrelationContext {
   correlationId: string;
-  userId?: number;
+  userId?: string;
   requestId: string;
 }
 

@@ -7,8 +7,8 @@ import { ConversationCreatedEvent } from '@domain/events/conversation-events';
 
 export interface CreateConversationParams {
   type: string;
-  createdBy: number;
-  participants: Array<{ userId: number; role: string }>;
+  createdBy: string;
+  participants: Array<{ userId: string; role: string }>;
   title?: string;
   description?: string;
   avatar?: string;
@@ -45,7 +45,7 @@ export class ConversationFactory {
 
     // Create participants
     const participants: Participant[] = [];
-    const participantData: Array<{ userId: number; role: ParticipantRole }> = [];
+    const participantData: Array<{ userId: string; role: ParticipantRole }> = [];
 
     for (const participantInfo of params.participants) {
       const role = ParticipantRole.fromString(participantInfo.role);
@@ -53,7 +53,7 @@ export class ConversationFactory {
       // For new conversations, we don't have a conversationId yet
       // This would typically be handled after the conversation is persisted
       const participant = new Participant();
-      participant.conversationId = 0; // Will be set after conversation is saved
+      participant.conversationId = ''; // Will be set after conversation is saved
       participant.userId = participantInfo.userId;
       participant.role = role;
       participant.isMuted = false;
@@ -70,7 +70,7 @@ export class ConversationFactory {
 
     // Create domain event
     const event = new ConversationCreatedEvent(
-      0, // Will be set after persistence
+      '', // Will be set after persistence
       conversationType,
       params.createdBy,
       participantData,
@@ -84,9 +84,9 @@ export class ConversationFactory {
   }
 
   static createDirectConversation(
-    user1Id: number,
-    user2Id: number,
-    createdBy: number,
+    user1Id: string,
+    user2Id: string,
+    createdBy: string,
   ): {
     conversation: Conversation;
     participants: Participant[];
@@ -103,8 +103,8 @@ export class ConversationFactory {
   }
 
   static createGroupConversation(
-    participantIds: number[],
-    createdBy: number,
+    participantIds: string[],
+    createdBy: string,
     title?: string,
   ): {
     conversation: Conversation;
@@ -129,9 +129,9 @@ export class ConversationFactory {
   }
 
   static createBusinessConversation(
-    customerId: number,
-    businessId: number,
-    agentId?: number,
+    customerId: string,
+    businessId: string,
+    agentId?: string,
   ): {
     conversation: Conversation;
     participants: Participant[];
@@ -154,8 +154,8 @@ export class ConversationFactory {
   }
 
   private static validateCreateParams(params: CreateConversationParams): void {
-    if (!params.createdBy || params.createdBy <= 0) {
-      throw new Error('Created by user ID must be a positive number');
+    if (!params.createdBy || !params.createdBy.trim()) {
+      throw new Error('Created by user ID must be provided');
     }
 
     if (!params.participants || params.participants.length === 0) {
@@ -179,10 +179,10 @@ export class ConversationFactory {
       throw new Error('Duplicate participants are not allowed');
     }
 
-    // Validate participant IDs are positive
+    // Validate participant IDs are provided
     params.participants.forEach(p => {
-      if (!p.userId || p.userId <= 0) {
-        throw new Error('All participant IDs must be positive numbers');
+      if (!p.userId || !p.userId.trim()) {
+        throw new Error('All participant IDs must be provided');
       }
     });
 

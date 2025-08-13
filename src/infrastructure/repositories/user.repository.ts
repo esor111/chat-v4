@@ -13,7 +13,7 @@ export class UserRepository implements IUserRepository {
     private readonly logger: StructuredLoggerService,
   ) {}
 
-  async findById(userId: number): Promise<User | null> {
+  async findById(userId: string): Promise<User | null> {
     try {
       const user = await this.repository.findOne({ where: { userId } });
       return user || null;
@@ -27,7 +27,7 @@ export class UserRepository implements IUserRepository {
     }
   }
 
-  async findByIds(userIds: number[]): Promise<User[]> {
+  async findByIds(userIds: string[]): Promise<User[]> {
     try {
       if (userIds.length === 0) return [];
       return await this.repository.find({ where: { userId: In(userIds) } });
@@ -41,7 +41,7 @@ export class UserRepository implements IUserRepository {
     }
   }
 
-  async exists(userId: number): Promise<boolean> {
+  async exists(userId: string): Promise<boolean> {
     try {
       const count = await this.repository.count({ where: { userId } });
       return count > 0;
@@ -74,7 +74,7 @@ export class UserRepository implements IUserRepository {
     }
   }
 
-  async delete(userId: number): Promise<void> {
+  async delete(userId: string): Promise<void> {
     try {
       await this.repository.delete({ userId });
       this.logger.debug('User deleted successfully', {
@@ -101,7 +101,7 @@ export class UserQueryRepository implements IUserQueryRepository {
     private readonly logger: StructuredLoggerService,
   ) {}
 
-  async findById(userId: number): Promise<User | null> {
+  async findById(userId: string): Promise<User | null> {
     try {
       const user = await this.repository.findOne({ where: { userId } });
       return user || null;
@@ -115,7 +115,7 @@ export class UserQueryRepository implements IUserQueryRepository {
     }
   }
 
-  async findByIds(userIds: number[]): Promise<User[]> {
+  async findByIds(userIds: string[]): Promise<User[]> {
     try {
       if (userIds.length === 0) return [];
       return await this.repository.find({ where: { userId: In(userIds) } });
@@ -129,7 +129,7 @@ export class UserQueryRepository implements IUserQueryRepository {
     }
   }
 
-  async exists(userId: number): Promise<boolean> {
+  async exists(userId: string): Promise<boolean> {
     try {
       const count = await this.repository.count({ where: { userId } });
       return count > 0;
@@ -143,10 +143,11 @@ export class UserQueryRepository implements IUserQueryRepository {
     }
   }
 
-  async findActiveUsers(userIds: number[]): Promise<User[]> {
+  async findActiveUsers(userIds: string[]): Promise<User[]> {
     try {
       if (userIds.length === 0) return [];
       // In a real implementation, you might have an 'active' status field
+      // For now, we'll just return all users
       return await this.repository.find({ where: { userId: In(userIds) } });
     } catch (error) {
       this.logger.error('Failed to find active users', error, {
@@ -186,7 +187,7 @@ export class UserCommandRepository implements IUserCommandRepository {
     }
   }
 
-  async delete(userId: number): Promise<void> {
+  async delete(userId: string): Promise<void> {
     try {
       await this.repository.delete({ userId });
       this.logger.debug('User deleted successfully', {
@@ -206,7 +207,6 @@ export class UserCommandRepository implements IUserCommandRepository {
 
   async bulkSave(users: User[]): Promise<User[]> {
     try {
-      if (users.length === 0) return [];
       const savedUsers = await this.repository.save(users);
       this.logger.debug('Users bulk saved successfully', {
         service: 'UserCommandRepository',

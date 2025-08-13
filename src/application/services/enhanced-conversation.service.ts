@@ -7,22 +7,22 @@ import { Conversation } from '@domain/entities/conversation.entity';
 import { StructuredLoggerService } from '@infrastructure/logging/structured-logger.service';
 
 export interface CreateDirectConversationRequest {
-  user1Id: number;
-  user2Id: number;
-  createdBy: number;
+  user1Id: string;
+  user2Id: string;
+  createdBy: string;
 }
 
 export interface CreateGroupConversationRequest {
-  participantIds: number[];
-  createdBy: number;
+  participantIds: string[];
+  createdBy: string;
   title?: string;
   description?: string;
 }
 
 export interface CreateBusinessConversationRequest {
-  customerId: number;
-  businessId: number;
-  agentId?: number;
+  customerId: string;
+  businessId: string;
+  agentId?: string;
 }
 
 @Injectable()
@@ -184,10 +184,10 @@ export class EnhancedConversationService {
   }
 
   async addParticipantToConversation(
-    conversationId: number,
-    userId: number,
+    conversationId: string,
+    userId: string,
     role: string,
-    addedBy: number,
+    addedBy: string,
   ): Promise<void> {
     this.logger.log('Adding participant to conversation', {
       service: 'EnhancedConversationService',
@@ -221,9 +221,9 @@ export class EnhancedConversationService {
   }
 
   async removeParticipantFromConversation(
-    conversationId: number,
-    userId: number,
-    removedBy: number,
+    conversationId: string,
+    userId: string,
+    removedBy: string,
     reason?: string,
   ): Promise<void> {
     this.logger.log('Removing participant from conversation', {
@@ -250,7 +250,7 @@ export class EnhancedConversationService {
     });
   }
 
-  async getUserConversations(userId: number, type?: string): Promise<Conversation[]> {
+  async getUserConversations(userId: string, type?: string): Promise<Conversation[]> {
     this.logger.log('Getting user conversations', {
       service: 'EnhancedConversationService',
       operation: 'getUserConversations',
@@ -279,7 +279,7 @@ export class EnhancedConversationService {
     }
   }
 
-  async getConversationWithMetadata(conversationId: number, userId: number): Promise<ConversationWithMetadata | null> {
+  async getConversationWithMetadata(conversationId: string, userId: string): Promise<ConversationWithMetadata | null> {
     this.logger.log('Getting conversation with metadata', {
       service: 'EnhancedConversationService',
       operation: 'getConversationWithMetadata',
@@ -290,7 +290,7 @@ export class EnhancedConversationService {
     return await this.conversationRepository.getConversationWithMetadata(conversationId, userId);
   }
 
-  async updateConversationActivity(conversationId: number, messageId: number): Promise<void> {
+  async updateConversationActivity(conversationId: string, messageId: string): Promise<void> {
     this.logger.debug('Updating conversation activity', {
       service: 'EnhancedConversationService',
       operation: 'updateConversationActivity',

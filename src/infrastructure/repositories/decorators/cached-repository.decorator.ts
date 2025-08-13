@@ -44,7 +44,7 @@ export class CachedUserQueryRepository implements IUserQueryRepository {
     private readonly logger: StructuredLoggerService,
   ) {}
 
-  async findById(userId: number): Promise<User | null> {
+  async findById(userId: string): Promise<User | null> {
     const cacheKey = `user:${userId}`;
     
     // Try cache first
@@ -75,7 +75,7 @@ export class CachedUserQueryRepository implements IUserQueryRepository {
     return user;
   }
 
-  async findByIds(userIds: number[]): Promise<User[]> {
+  async findByIds(userIds: string[]): Promise<User[]> {
     const cacheKey = `users:${userIds.sort().join(',')}`;
     
     // Try cache first
@@ -111,7 +111,7 @@ export class CachedUserQueryRepository implements IUserQueryRepository {
     return users;
   }
 
-  async exists(userId: number): Promise<boolean> {
+  async exists(userId: string): Promise<boolean> {
     const cacheKey = `user:exists:${userId}`;
     
     // Try cache first
@@ -135,13 +135,13 @@ export class CachedUserQueryRepository implements IUserQueryRepository {
     return exists;
   }
 
-  async findActiveUsers(userIds: number[]): Promise<User[]> {
+  async findActiveUsers(userIds: string[]): Promise<User[]> {
     // For active users, we don't cache as the status might change frequently
     return await this.baseRepository.findActiveUsers(userIds);
   }
 
   // Cache invalidation methods
-  invalidateUser(userId: number): void {
+  invalidateUser(userId: string): void {
     this.cache.delete(`user:${userId}`);
     this.cache.delete(`user:exists:${userId}`);
     

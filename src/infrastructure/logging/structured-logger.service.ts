@@ -5,7 +5,7 @@ import { correlationStorage } from './correlation-id.middleware';
 export interface LogContext {
   correlationId?: string;
   requestId?: string;
-  userId?: number;
+  userId?: string;
   service?: string;
   operation?: string;
   [key: string]: any;

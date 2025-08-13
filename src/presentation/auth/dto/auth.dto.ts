@@ -1,9 +1,8 @@
-import { IsNumber, IsString, IsNotEmpty, Min } from 'class-validator';
+import { IsUUID, IsString, IsNotEmpty } from 'class-validator';
 
 export class LoginDto {
-  @IsNumber()
-  @Min(1, { message: 'User ID must be a positive number' })
-  userId: number;
+  @IsUUID(4, { message: 'User ID must be a valid UUID' })
+  userId: string;
 }
 
 export class RefreshTokenDto {

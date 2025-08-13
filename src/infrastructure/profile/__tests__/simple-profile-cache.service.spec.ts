@@ -28,7 +28,7 @@ describe('SimpleProfileCacheService', () => {
 
   describe('user profile caching', () => {
     it('should cache user profile on first request', async () => {
-      const userId = 1;
+      const userId = '1';
       
       // First request - should fetch from mock service
       const profile1 = await service.getUserProfile(userId);
@@ -41,12 +41,12 @@ describe('SimpleProfileCacheService', () => {
     });
 
     it('should return null for non-existent user', async () => {
-      const profile = await service.getUserProfile(999);
+      const profile = await service.getUserProfile('999');
       expect(profile).toBeNull();
     });
 
     it('should invalidate user profile cache', async () => {
-      const userId = 1;
+      const userId = '1';
       
       // Cache the profile
       await service.getUserProfile(userId);
@@ -62,7 +62,7 @@ describe('SimpleProfileCacheService', () => {
 
   describe('business profile caching', () => {
     it('should cache business profile on first request', async () => {
-      const businessId = 100;
+      const businessId = '100';
       
       // First request - should fetch from mock service
       const profile1 = await service.getBusinessProfile(businessId);
@@ -76,12 +76,12 @@ describe('SimpleProfileCacheService', () => {
     });
 
     it('should return null for non-existent business', async () => {
-      const profile = await service.getBusinessProfile(999);
+      const profile = await service.getBusinessProfile('999');
       expect(profile).toBeNull();
     });
 
     it('should invalidate business profile cache', async () => {
-      const businessId = 100;
+      const businessId = '100';
       
       // Cache the profile
       await service.getBusinessProfile(businessId);
@@ -98,8 +98,8 @@ describe('SimpleProfileCacheService', () => {
   describe('batch operations', () => {
     it('should handle batch profile requests', async () => {
       const request = {
-        user_ids: [1, 2],
-        business_ids: [100, 101],
+        user_ids: ['1', '2'],
+        business_ids: ['100', '101'],
       };
 
       const result = await service.getBatchProfiles(request);
@@ -111,7 +111,7 @@ describe('SimpleProfileCacheService', () => {
     });
 
     it('should cache profiles from batch requests', async () => {
-      const userIds = [1, 2, 3];
+      const userIds = ['1', '2', '3'];
       
       // First batch request
       const profiles1 = await service.getUserProfiles(userIds);
@@ -126,8 +126,8 @@ describe('SimpleProfileCacheService', () => {
   describe('cache management', () => {
     it('should provide cache statistics', async () => {
       // Cache some profiles
-      await service.getUserProfile(1);
-      await service.getBusinessProfile(100);
+      await service.getUserProfile('1');
+      await service.getBusinessProfile('100');
 
       const stats = service.getCacheStats();
       expect(stats.totalEntries).toBe(2);
@@ -137,8 +137,8 @@ describe('SimpleProfileCacheService', () => {
 
     it('should clear all cache', async () => {
       // Cache some profiles
-      await service.getUserProfile(1);
-      await service.getBusinessProfile(100);
+      await service.getUserProfile('1');
+      await service.getBusinessProfile('100');
 
       expect(service.getCacheStats().totalEntries).toBe(2);
 
@@ -158,7 +158,7 @@ describe('SimpleProfileCacheService', () => {
 
   describe('data consistency', () => {
     it('should return copies of cached data', async () => {
-      const userId = 1;
+      const userId = '1';
       
       const profile1 = await service.getUserProfile(userId);
       const profile2 = await service.getUserProfile(userId);

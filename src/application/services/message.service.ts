@@ -22,8 +22,8 @@ export class MessageService {
   ) {}
 
   async sendMessage(params: {
-    conversationId: number;
-    senderId: number;
+    conversationId: string;
+    senderId: string;
     content: string;
     type?: string;
   }): Promise<Message> {
@@ -57,9 +57,9 @@ export class MessageService {
   }
 
   async editMessage(
-    messageId: number,
+    messageId: string,
     newContent: string,
-    editedBy: number,
+    editedBy: string,
   ): Promise<Message> {
     this.logger.log('Editing message', {
       service: 'MessageService',
@@ -92,7 +92,7 @@ export class MessageService {
     return savedMessage;
   }
 
-  async deleteMessage(messageId: number, deletedBy: number): Promise<void> {
+  async deleteMessage(messageId: string, deletedBy: string): Promise<void> {
     this.logger.log('Deleting message', {
       service: 'MessageService',
       operation: 'deleteMessage',
@@ -123,9 +123,9 @@ export class MessageService {
   }
 
   async getMessages(
-    conversationId: number,
-    userId: number,
-    beforeMessageId?: number,
+    conversationId: string,
+    userId: string,
+    beforeMessageId?: string,
     limit: number = 50,
   ): Promise<{ messages: Message[]; hasMore: boolean }> {
     // Validate user is participant
@@ -156,9 +156,9 @@ export class MessageService {
   }
 
   async markMessageAsRead(
-    conversationId: number,
-    messageId: number,
-    userId: number,
+    conversationId: string,
+    messageId: string,
+    userId: string,
   ): Promise<void> {
     this.logger.log('Marking message as read', {
       service: 'MessageService',
@@ -188,7 +188,7 @@ export class MessageService {
     });
   }
 
-  private async validateUserCanSendMessage(conversationId: number, senderId: number): Promise<void> {
+  private async validateUserCanSendMessage(conversationId: string, senderId: string): Promise<void> {
     const conversation = await this.conversationRepository.findOne({
       where: { id: conversationId },
       relations: ['participants'],
@@ -204,7 +204,7 @@ export class MessageService {
     }
   }
 
-  private async validateUserIsParticipant(conversationId: number, userId: number): Promise<void> {
+  private async validateUserIsParticipant(conversationId: string, userId: string): Promise<void> {
     const participant = await this.participantRepository.findOne({
       where: { conversationId, userId },
     });
@@ -214,7 +214,7 @@ export class MessageService {
     }
   }
 
-  private validateCanEditMessage(message: Message, editedBy: number): void {
+  private validateCanEditMessage(message: Message, editedBy: string): void {
     // Only sender can edit their own messages
     if (editedBy !== message.senderId) {
       throw new Error('Only the message sender can edit the message');
@@ -238,14 +238,14 @@ export class MessageService {
     }
   }
 
-  private validateCanDeleteMessage(message: Message, deletedBy: number): void {
+  private validateCanDeleteMessage(message: Message, deletedBy: string): void {
     // Cannot delete already deleted messages
     if (message.deletedAt) {
       throw new Error('Message is already deleted');
     }
 
     // Only sender can delete their own messages (or system can delete any)
-    if (deletedBy !== message.senderId && deletedBy !== 0) {
+    if (deletedBy !== message.senderId && deletedBy !== '0') {
       throw new Error('Only the message sender can delete the message');
     }
 
@@ -257,7 +257,7 @@ export class MessageService {
     }
   }
 
-  private async updateConversationLastMessage(conversationId: number, messageId: number): Promise<void> {
+  private async updateConversationLastMessage(conversationId: string, messageId: string): Promise<void> {
     await this.conversationRepository.update(conversationId, {
       lastMessageId: messageId,
       lastActivity: new Date(),

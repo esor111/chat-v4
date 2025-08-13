@@ -8,8 +8,8 @@ import { MessageType } from '@domain/value-objects/message-type.vo';
 import { ChatGateway } from '@infrastructure/websocket/chat.gateway';
 
 export interface SendMessageRequest {
-  senderId: number;
-  conversationId: number;
+  senderId: string;
+  conversationId: string;
   content: string;
   messageType?: string;
 }
@@ -17,9 +17,9 @@ export interface SendMessageRequest {
 export interface SendMessageResponse {
   success: boolean;
   message?: {
-    messageId: number;
-    conversationId: number;
-    senderId: number;
+    messageId: string;
+    conversationId: string;
+    senderId: string;
     content: string;
     messageType: string;
     sentAt: Date;
@@ -111,10 +111,10 @@ export class WebSocketMessageService {
   /**
    * Get recent messages for a conversation
    */
-  async getRecentMessages(conversationId: number, limit: number = 50): Promise<{
+  async getRecentMessages(conversationId: string, limit: number = 50): Promise<{
     messages: Array<{
-      messageId: number;
-      senderId: number;
+      messageId: string;
+      senderId: string;
       content: string;
       messageType: string;
       sentAt: Date;
@@ -164,7 +164,7 @@ export class WebSocketMessageService {
   /**
    * Check if user can send message to conversation
    */
-  private async canUserSendMessage(userId: number, conversationId: number): Promise<{
+  private async canUserSendMessage(userId: string, conversationId: string): Promise<{
     allowed: boolean;
     reason?: string;
   }> {
@@ -194,7 +194,7 @@ export class WebSocketMessageService {
   /**
    * Update conversation's last message and activity timestamp
    */
-  private async updateConversationActivity(conversationId: number, messageId: number): Promise<void> {
+  private async updateConversationActivity(conversationId: string, messageId: string): Promise<void> {
     try {
       const conversation = await this.conversationRepository.findById(conversationId);
       if (conversation) {
@@ -239,14 +239,14 @@ export class WebSocketMessageService {
   /**
    * Handle offline message delivery
    */
-  async deliverOfflineMessages(userId: number): Promise<void> {
+  async deliverOfflineMessages(userId: string): Promise<void> {
     try {
       // Get user's conversations
       const participants = await this.participantRepository.findByUser(userId);
       
       for (const participant of participants) {
         // Get unread messages since last read
-        const lastReadMessageId = participant.lastReadMessageId || 0;
+        const lastReadMessageId = participant.lastReadMessageId || '0';
         const messages = await this.messageRepository.findUnreadMessages(
           participant.conversationId,
           lastReadMessageId
@@ -282,7 +282,7 @@ export class WebSocketMessageService {
   /**
    * Mark messages as read for a user in a conversation
    */
-  async markMessagesAsRead(userId: number, conversationId: number, lastMessageId: number): Promise<void> {
+  async markMessagesAsRead(userId: string, conversationId: string, lastMessageId: string): Promise<void> {
     try {
       const participant = await this.participantRepository.findByConversationAndUser(
         conversationId,

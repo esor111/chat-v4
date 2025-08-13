@@ -209,18 +209,18 @@ describe('ChatGateway', () => {
   describe('utility methods', () => {
     it('should track connected users', () => {
       expect(gateway.getConnectedUsersCount()).toBe(0);
-      expect(gateway.isUserConnected(123)).toBe(false);
-      expect(gateway.getUserSocketCount(123)).toBe(0);
+      expect(gateway.isUserConnected('123')).toBe(false);
+      expect(gateway.getUserSocketCount('123')).toBe(0);
     });
 
     it('should send message to user', async () => {
       // This would require setting up the internal user tracking
-      const result = await gateway.sendMessageToUser(123, 'test_event', { data: 'test' });
+      const result = await gateway.sendMessageToUser('123', 'test_event', { data: 'test' });
       expect(result).toBe(false); // User not connected
     });
 
     it('should send message to conversation', async () => {
-      await gateway.sendMessageToConversation(456, 'test_event', { data: 'test' });
+      await gateway.sendMessageToConversation('456', 'test_event', { data: 'test' });
       expect(mockServer.to).toHaveBeenCalledWith('conversation_456');
     });
   });

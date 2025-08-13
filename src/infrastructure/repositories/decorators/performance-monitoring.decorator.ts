@@ -21,7 +21,7 @@ export class PerformanceMonitoringUserRepository implements IUserRepository {
     private readonly logger: StructuredLoggerService,
   ) {}
 
-  async findById(userId: number): Promise<User | null> {
+  async findById(userId: string): Promise<User | null> {
     return await this.executeWithMonitoring(
       'findById',
       () => this.baseRepository.findById(userId),
@@ -29,7 +29,7 @@ export class PerformanceMonitoringUserRepository implements IUserRepository {
     );
   }
 
-  async findByIds(userIds: number[]): Promise<User[]> {
+  async findByIds(userIds: string[]): Promise<User[]> {
     return await this.executeWithMonitoring(
       'findByIds',
       () => this.baseRepository.findByIds(userIds),
@@ -37,7 +37,7 @@ export class PerformanceMonitoringUserRepository implements IUserRepository {
     );
   }
 
-  async exists(userId: number): Promise<boolean> {
+  async exists(userId: string): Promise<boolean> {
     return await this.executeWithMonitoring(
       'exists',
       () => this.baseRepository.exists(userId),
@@ -53,7 +53,7 @@ export class PerformanceMonitoringUserRepository implements IUserRepository {
     );
   }
 
-  async delete(userId: number): Promise<void> {
+  async delete(userId: string): Promise<void> {
     return await this.executeWithMonitoring(
       'delete',
       () => this.baseRepository.delete(userId),

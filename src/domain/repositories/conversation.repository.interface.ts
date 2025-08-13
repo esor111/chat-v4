@@ -2,27 +2,27 @@ import { Conversation } from '@domain/entities/conversation.entity';
 import { ConversationType } from '@domain/value-objects/conversation-type.vo';
 
 export interface IConversationRepository {
-  findById(conversationId: number): Promise<Conversation | null>;
-  findByIds(conversationIds: number[], options?: { limit?: number; offset?: number }): Promise<Conversation[]>;
-  findByParticipant(userId: number): Promise<Conversation[]>;
+  findById(conversationId: string): Promise<Conversation | null>;
+  findByIds(conversationIds: string[], options?: { limit?: number; offset?: number }): Promise<Conversation[]>;
+  findByParticipant(userId: string): Promise<Conversation[]>;
   save(conversation: Conversation): Promise<Conversation>;
-  delete(conversationId: number): Promise<void>;
-  updateLastActivity(conversationId: number, lastMessageId?: number): Promise<void>;
+  delete(conversationId: string): Promise<void>;
+  updateLastActivity(conversationId: string, lastMessageId?: string): Promise<void>;
 }
 
 export interface IConversationQueryRepository {
-  findById(conversationId: number): Promise<Conversation | null>;
-  findByIdWithParticipants(conversationId: number): Promise<Conversation | null>;
-  findByParticipant(userId: number, limit?: number, offset?: number): Promise<Conversation[]>;
+  findById(conversationId: string): Promise<Conversation | null>;
+  findByIdWithParticipants(conversationId: string): Promise<Conversation | null>;
+  findByParticipant(userId: string, limit?: number, offset?: number): Promise<Conversation[]>;
   findByType(type: ConversationType, limit?: number): Promise<Conversation[]>;
-  findDirectConversation(user1Id: number, user2Id: number): Promise<Conversation | null>;
-  countByParticipant(userId: number): Promise<number>;
-  findRecentConversations(userId: number, limit: number): Promise<Conversation[]>;
+  findDirectConversation(user1Id: string, user2Id: string): Promise<Conversation | null>;
+  countByParticipant(userId: string): Promise<number>;
+  findRecentConversations(userId: string, limit: number): Promise<Conversation[]>;
 }
 
 export interface IConversationCommandRepository {
   save(conversation: Conversation): Promise<Conversation>;
-  delete(conversationId: number): Promise<void>;
-  updateLastActivity(conversationId: number, lastMessageId?: number): Promise<void>;
-  bulkUpdateLastActivity(updates: Array<{ conversationId: number; lastMessageId?: number }>): Promise<void>;
+  delete(conversationId: string): Promise<void>;
+  updateLastActivity(conversationId: string, lastMessageId?: string): Promise<void>;
+  bulkUpdateLastActivity(updates: Array<{ conversationId: string; lastMessageId?: string }>): Promise<void>;
 }

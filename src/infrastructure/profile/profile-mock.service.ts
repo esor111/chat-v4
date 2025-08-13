@@ -1,18 +1,18 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from "@nestjs/common";
 
 export interface UserProfile {
-  id: number;
+  id: string;
   name: string;
   avatar_url?: string;
-  user_type: 'user';
+  user_type: "user";
   is_online?: boolean;
 }
 
 export interface BusinessProfile {
-  id: number;
+  id: string;
   name: string;
   avatar_url?: string;
-  user_type: 'business';
+  user_type: "business";
   is_online: boolean;
   business_hours?: {
     open: string;
@@ -36,38 +36,38 @@ export class ProfileMockService {
     // Mock user profiles
     const mockUsers: UserProfile[] = [
       {
-        id: 1,
-        name: 'Ishwor Thapa',
-        avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ishwor',
-        user_type: 'user',
+        id: "550e8400-e29b-41d4-a716-446655440001",
+        name: "Ishwor Thapa",
+        avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=ishwor",
+        user_type: "user",
         is_online: true,
       },
       {
-        id: 2,
-        name: 'John Doe',
-        avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=john',
-        user_type: 'user',
+        id: "550e8400-e29b-41d4-a716-446655440002",
+        name: "John Doe",
+        avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=john",
+        user_type: "user",
         is_online: false,
       },
       {
-        id: 3,
-        name: 'Jane Smith',
-        avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=jane',
-        user_type: 'user',
+        id: "550e8400-e29b-41d4-a716-446655440003",
+        name: "Jane Smith",
+        avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=jane",
+        user_type: "user",
         is_online: true,
       },
       {
-        id: 4,
-        name: 'Mike Johnson',
-        avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=mike',
-        user_type: 'user',
+        id: "550e8400-e29b-41d4-a716-446655440004",
+        name: "Mike Johnson",
+        avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=mike",
+        user_type: "user",
         is_online: false,
       },
       {
-        id: 5,
-        name: 'Sarah Wilson',
-        avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sarah',
-        user_type: 'user',
+        id: "550e8400-e29b-41d4-a716-446655440005",
+        name: "Sarah Wilson",
+        avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarah",
+        user_type: "user",
         is_online: true,
       },
     ];
@@ -75,76 +75,80 @@ export class ProfileMockService {
     // Mock business profiles
     const mockBusinesses: BusinessProfile[] = [
       {
-        id: 100,
-        name: 'Nike Nepal',
-        avatar_url: 'https://api.dicebear.com/7.x/initials/svg?seed=Nike',
-        user_type: 'business',
+        id: "650e8400-e29b-41d4-a716-446655440100",
+        name: "Nike Nepal",
+        avatar_url: "https://api.dicebear.com/7.x/initials/svg?seed=Nike",
+        user_type: "business",
         is_online: true,
         business_hours: {
-          open: '09:00',
-          close: '18:00',
-          timezone: 'Asia/Kathmandu',
+          open: "09:00",
+          close: "18:00",
+          timezone: "Asia/Kathmandu",
         },
       },
       {
-        id: 101,
-        name: 'Adidas Store',
-        avatar_url: 'https://api.dicebear.com/7.x/initials/svg?seed=Adidas',
-        user_type: 'business',
+        id: "650e8400-e29b-41d4-a716-446655440101",
+        name: "Adidas Store",
+        avatar_url: "https://api.dicebear.com/7.x/initials/svg?seed=Adidas",
+        user_type: "business",
         is_online: false,
         business_hours: {
-          open: '10:00',
-          close: '20:00',
-          timezone: 'Asia/Kathmandu',
+          open: "10:00",
+          close: "20:00",
+          timezone: "Asia/Kathmandu",
         },
       },
       {
-        id: 102,
-        name: 'Tech Support Co.',
-        avatar_url: 'https://api.dicebear.com/7.x/initials/svg?seed=Tech',
-        user_type: 'business',
+        id: "650e8400-e29b-41d4-a716-446655440102",
+        name: "Tech Support Co.",
+        avatar_url: "https://api.dicebear.com/7.x/initials/svg?seed=Tech",
+        user_type: "business",
         is_online: true,
         business_hours: {
-          open: '08:00',
-          close: '17:00',
-          timezone: 'Asia/Kathmandu',
+          open: "08:00",
+          close: "17:00",
+          timezone: "Asia/Kathmandu",
         },
       },
       {
-        id: 103,
-        name: 'Food Delivery Plus',
-        avatar_url: 'https://api.dicebear.com/7.x/initials/svg?seed=Food',
-        user_type: 'business',
+        id: "650e8400-e29b-41d4-a716-446655440103",
+        name: "Food Delivery Plus",
+        avatar_url: "https://api.dicebear.com/7.x/initials/svg?seed=Food",
+        user_type: "business",
         is_online: true,
         business_hours: {
-          open: '06:00',
-          close: '23:00',
-          timezone: 'Asia/Kathmandu',
+          open: "06:00",
+          close: "23:00",
+          timezone: "Asia/Kathmandu",
         },
       },
     ];
 
     // Cache the mock data
-    mockUsers.forEach(user => {
+    mockUsers.forEach((user) => {
       this.profileCache.set(`user:${user.id}`, user);
     });
 
-    mockBusinesses.forEach(business => {
+    mockBusinesses.forEach((business) => {
       this.profileCache.set(`business:${business.id}`, business);
     });
 
-    this.logger.log(`Initialized ${mockUsers.length} user profiles and ${mockBusinesses.length} business profiles`);
+    this.logger.log(
+      `Initialized ${mockUsers.length} user profiles and ${mockBusinesses.length} business profiles`
+    );
   }
 
   /**
    * Get a single user profile by ID
    */
-  async getUserProfile(userId: number): Promise<UserProfile | null> {
+  async getUserProfile(userId: string): Promise<UserProfile | null> {
     const key = `user:${userId}`;
     const profile = this.profileCache.get(key) as UserProfile;
-    
+
     if (profile) {
-      this.logger.debug(`Retrieved user profile for user ${userId}: ${profile.name}`);
+      this.logger.debug(
+        `Retrieved user profile for user ${userId}: ${profile.name}`
+      );
       return { ...profile }; // Return a copy
     }
 
@@ -155,12 +159,16 @@ export class ProfileMockService {
   /**
    * Get a single business profile by ID
    */
-  async getBusinessProfile(businessId: number): Promise<BusinessProfile | null> {
+  async getBusinessProfile(
+    businessId: string
+  ): Promise<BusinessProfile | null> {
     const key = `business:${businessId}`;
     const profile = this.profileCache.get(key) as BusinessProfile;
-    
+
     if (profile) {
-      this.logger.debug(`Retrieved business profile for business ${businessId}: ${profile.name}`);
+      this.logger.debug(
+        `Retrieved business profile for business ${businessId}: ${profile.name}`
+      );
       return { ...profile }; // Return a copy
     }
 
@@ -171,9 +179,9 @@ export class ProfileMockService {
   /**
    * Get multiple user profiles by IDs
    */
-  async getUserProfiles(userIds: number[]): Promise<UserProfile[]> {
+  async getUserProfiles(userIds: string[]): Promise<UserProfile[]> {
     const profiles: UserProfile[] = [];
-    
+
     for (const userId of userIds) {
       const profile = await this.getUserProfile(userId);
       if (profile) {
@@ -181,16 +189,18 @@ export class ProfileMockService {
       }
     }
 
-    this.logger.debug(`Retrieved ${profiles.length}/${userIds.length} user profiles`);
+    this.logger.debug(
+      `Retrieved ${profiles.length}/${userIds.length} user profiles`
+    );
     return profiles;
   }
 
   /**
    * Get multiple business profiles by IDs
    */
-  async getBusinessProfiles(businessIds: number[]): Promise<BusinessProfile[]> {
+  async getBusinessProfiles(businessIds: string[]): Promise<BusinessProfile[]> {
     const profiles: BusinessProfile[] = [];
-    
+
     for (const businessId of businessIds) {
       const profile = await this.getBusinessProfile(businessId);
       if (profile) {
@@ -198,7 +208,9 @@ export class ProfileMockService {
       }
     }
 
-    this.logger.debug(`Retrieved ${profiles.length}/${businessIds.length} business profiles`);
+    this.logger.debug(
+      `Retrieved ${profiles.length}/${businessIds.length} business profiles`
+    );
     return profiles;
   }
 
@@ -207,8 +219,8 @@ export class ProfileMockService {
    * This simulates the kaha-main-v3 batch API format
    */
   async getBatchProfiles(request: {
-    user_ids?: number[];
-    business_ids?: number[];
+    user_ids?: string[];
+    business_ids?: string[];
   }): Promise<{
     users: UserProfile[];
     businesses: BusinessProfile[];
@@ -218,7 +230,9 @@ export class ProfileMockService {
     const users = await this.getUserProfiles(user_ids);
     const businesses = await this.getBusinessProfiles(business_ids);
 
-    this.logger.log(`Batch profile request: ${users.length} users, ${businesses.length} businesses`);
+    this.logger.log(
+      `Batch profile request: ${users.length} users, ${businesses.length} businesses`
+    );
 
     return {
       users,
@@ -229,7 +243,7 @@ export class ProfileMockService {
   /**
    * Check if a user exists
    */
-  userExists(userId: number): boolean {
+  userExists(userId: string): boolean {
     const key = `user:${userId}`;
     return this.profileCache.has(key);
   }
@@ -237,7 +251,7 @@ export class ProfileMockService {
   /**
    * Check if a business exists
    */
-  businessExists(businessId: number): boolean {
+  businessExists(businessId: string): boolean {
     const key = `business:${businessId}`;
     return this.profileCache.has(key);
   }
@@ -245,27 +259,27 @@ export class ProfileMockService {
   /**
    * Get all available user IDs (for testing)
    */
-  getAvailableUserIds(): number[] {
-    const userIds: number[] = [];
+  getAvailableUserIds(): string[] {
+    const userIds: string[] = [];
     for (const [key, profile] of this.profileCache.entries()) {
-      if (key.startsWith('user:') && profile.user_type === 'user') {
+      if (key.startsWith("user:") && profile.user_type === "user") {
         userIds.push(profile.id);
       }
     }
-    return userIds.sort((a, b) => a - b);
+    return userIds.sort();
   }
 
   /**
    * Get all available business IDs (for testing)
    */
-  getAvailableBusinessIds(): number[] {
-    const businessIds: number[] = [];
+  getAvailableBusinessIds(): string[] {
+    const businessIds: string[] = [];
     for (const [key, profile] of this.profileCache.entries()) {
-      if (key.startsWith('business:') && profile.user_type === 'business') {
+      if (key.startsWith("business:") && profile.user_type === "business") {
         businessIds.push(profile.id);
       }
     }
-    return businessIds.sort((a, b) => a - b);
+    return businessIds.sort();
   }
 
   /**
@@ -283,7 +297,9 @@ export class ProfileMockService {
   addMockBusiness(business: BusinessProfile): void {
     const key = `business:${business.id}`;
     this.profileCache.set(key, { ...business });
-    this.logger.debug(`Added mock business profile: ${business.name} (ID: ${business.id})`);
+    this.logger.debug(
+      `Added mock business profile: ${business.name} (ID: ${business.id})`
+    );
   }
 
   /**
@@ -291,7 +307,7 @@ export class ProfileMockService {
    */
   clearMockData(): void {
     this.profileCache.clear();
-    this.logger.debug('Cleared all mock profile data');
+    this.logger.debug("Cleared all mock profile data");
   }
 
   /**
@@ -309,10 +325,10 @@ export class ProfileMockService {
     let onlineBusinesses = 0;
 
     for (const profile of this.profileCache.values()) {
-      if (profile.user_type === 'user') {
+      if (profile.user_type === "user") {
         totalUsers++;
         if (profile.is_online) onlineUsers++;
-      } else if (profile.user_type === 'business') {
+      } else if (profile.user_type === "business") {
         totalBusinesses++;
         if (profile.is_online) onlineBusinesses++;
       }

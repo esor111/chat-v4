@@ -14,7 +14,7 @@ export class ParticipantRepository implements IParticipantRepository {
     private readonly logger: StructuredLoggerService,
   ) {}
 
-  async findByConversationAndUser(conversationId: number, userId: number): Promise<Participant | null> {
+  async findByConversationAndUser(conversationId: string, userId: string): Promise<Participant | null> {
     try {
       const participant = await this.repository.findOne({
         where: { conversationId, userId },
@@ -31,7 +31,7 @@ export class ParticipantRepository implements IParticipantRepository {
     }
   }
 
-  async findByConversation(conversationId: number): Promise<Participant[]> {
+  async findByConversation(conversationId: string): Promise<Participant[]> {
     try {
       return await this.repository.find({ where: { conversationId } });
     } catch (error) {
@@ -44,7 +44,7 @@ export class ParticipantRepository implements IParticipantRepository {
     }
   }
 
-  async findByUser(userId: number): Promise<Participant[]> {
+  async findByUser(userId: string): Promise<Participant[]> {
     try {
       return await this.repository.find({ where: { userId } });
     } catch (error) {
@@ -78,7 +78,7 @@ export class ParticipantRepository implements IParticipantRepository {
     }
   }
 
-  async delete(conversationId: number, userId: number): Promise<void> {
+  async delete(conversationId: string, userId: string): Promise<void> {
     try {
       await this.repository.delete({ conversationId, userId });
       this.logger.debug('Participant deleted successfully', {
@@ -98,7 +98,7 @@ export class ParticipantRepository implements IParticipantRepository {
     }
   }
 
-  async updateLastReadMessage(conversationId: number, userId: number, messageId: number): Promise<void> {
+  async updateLastReadMessage(conversationId: string, userId: string, messageId: string): Promise<void> {
     try {
       await this.repository.update(
         { conversationId, userId },
@@ -112,7 +112,7 @@ export class ParticipantRepository implements IParticipantRepository {
         messageId,
       });
     } catch (error) {
-      this.logger.error('Failed to update participant last read message', error, {
+      this.logger.error('Failed to update last read message', error, {
         service: 'ParticipantRepository',
         operation: 'updateLastReadMessage',
         conversationId,
@@ -132,7 +132,7 @@ export class ParticipantQueryRepository implements IParticipantQueryRepository {
     private readonly logger: StructuredLoggerService,
   ) {}
 
-  async findByConversationAndUser(conversationId: number, userId: number): Promise<Participant | null> {
+  async findByConversationAndUser(conversationId: string, userId: string): Promise<Participant | null> {
     try {
       const participant = await this.repository.findOne({
         where: { conversationId, userId },
@@ -149,7 +149,7 @@ export class ParticipantQueryRepository implements IParticipantQueryRepository {
     }
   }
 
-  async findByConversation(conversationId: number): Promise<Participant[]> {
+  async findByConversation(conversationId: string): Promise<Participant[]> {
     try {
       return await this.repository.find({ where: { conversationId } });
     } catch (error) {
@@ -162,7 +162,7 @@ export class ParticipantQueryRepository implements IParticipantQueryRepository {
     }
   }
 
-  async findByUser(userId: number): Promise<Participant[]> {
+  async findByUser(userId: string): Promise<Participant[]> {
     try {
       return await this.repository.find({ where: { userId } });
     } catch (error) {
@@ -177,10 +177,7 @@ export class ParticipantQueryRepository implements IParticipantQueryRepository {
 
   async findByRole(role: ParticipantRole): Promise<Participant[]> {
     try {
-      return await this.repository
-        .createQueryBuilder('participant')
-        .where('participant.role = :role', { role: role.value })
-        .getMany();
+      return await this.repository.find({ where: { role } });
     } catch (error) {
       this.logger.error('Failed to find participants by role', error, {
         service: 'ParticipantQueryRepository',
@@ -191,22 +188,20 @@ export class ParticipantQueryRepository implements IParticipantQueryRepository {
     }
   }
 
-  async findUnreadCounts(userId: number): Promise<Array<{ conversationId: number; unreadCount: number }>> {
+  async findUnreadCounts(userId: string): Promise<Array<{ conversationId: string; unreadCount: number }>> {
     try {
       const results = await this.repository
         .createQueryBuilder('participant')
-        .select('participant.conversationId', 'conversationId')
-        .addSelect('COUNT(message.id)', 'unreadCount')
-        .leftJoin('messages', 'message', 
-          'message.conversationId = participant.conversationId AND message.id > COALESCE(participant.lastReadMessageId, 0) AND message.deletedAt IS NULL'
-        )
-        .where('participant.userId = :userId', { userId })
-        .groupBy('participant.conversationId')
+        .leftJoin('messages', 'message', 'message.conversation_id = participant.conversation_id')
+        .select('participant.conversation_id', 'conversationId')
+        .addSelect('COUNT(CASE WHEN message.id > participant.last_read_message_id THEN 1 END)', 'unreadCount')
+        .where('participant.user_id = :userId', { userId })
+        .groupBy('participant.conversation_id')
         .getRawMany();
 
       return results.map(result => ({
-        conversationId: parseInt(result.conversationId),
-        unreadCount: parseInt(result.unreadCount) || 0,
+        conversationId: result.conversationId,
+        unreadCount: parseInt(result.unreadCount, 10),
       }));
     } catch (error) {
       this.logger.error('Failed to find unread counts', error, {
@@ -218,7 +213,7 @@ export class ParticipantQueryRepository implements IParticipantQueryRepository {
     }
   }
 
-  async isParticipant(conversationId: number, userId: number): Promise<boolean> {
+  async isParticipant(conversationId: string, userId: string): Promise<boolean> {
     try {
       const count = await this.repository.count({
         where: { conversationId, userId },
@@ -235,7 +230,7 @@ export class ParticipantQueryRepository implements IParticipantQueryRepository {
     }
   }
 
-  async countByConversation(conversationId: number): Promise<number> {
+  async countByConversation(conversationId: string): Promise<number> {
     try {
       return await this.repository.count({ where: { conversationId } });
     } catch (error) {
@@ -278,7 +273,7 @@ export class ParticipantCommandRepository implements IParticipantCommandReposito
     }
   }
 
-  async delete(conversationId: number, userId: number): Promise<void> {
+  async delete(conversationId: string, userId: string): Promise<void> {
     try {
       await this.repository.delete({ conversationId, userId });
       this.logger.debug('Participant deleted successfully', {
@@ -300,8 +295,6 @@ export class ParticipantCommandRepository implements IParticipantCommandReposito
 
   async bulkSave(participants: Participant[]): Promise<Participant[]> {
     try {
-      if (participants.length === 0) return [];
-      
       const savedParticipants = await this.repository.save(participants);
       this.logger.debug('Participants bulk saved successfully', {
         service: 'ParticipantCommandRepository',
@@ -319,7 +312,7 @@ export class ParticipantCommandRepository implements IParticipantCommandReposito
     }
   }
 
-  async updateLastReadMessage(conversationId: number, userId: number, messageId: number): Promise<void> {
+  async updateLastReadMessage(conversationId: string, userId: string, messageId: string): Promise<void> {
     try {
       await this.repository.update(
         { conversationId, userId },
@@ -333,7 +326,7 @@ export class ParticipantCommandRepository implements IParticipantCommandReposito
         messageId,
       });
     } catch (error) {
-      this.logger.error('Failed to update participant last read message', error, {
+      this.logger.error('Failed to update last read message', error, {
         service: 'ParticipantCommandRepository',
         operation: 'updateLastReadMessage',
         conversationId,
@@ -344,7 +337,7 @@ export class ParticipantCommandRepository implements IParticipantCommandReposito
     }
   }
 
-  async updateRole(conversationId: number, userId: number, role: ParticipantRole): Promise<void> {
+  async updateRole(conversationId: string, userId: string, role: ParticipantRole): Promise<void> {
     try {
       await this.repository.update(
         { conversationId, userId },
@@ -369,7 +362,7 @@ export class ParticipantCommandRepository implements IParticipantCommandReposito
     }
   }
 
-  async toggleMute(conversationId: number, userId: number, isMuted: boolean): Promise<void> {
+  async toggleMute(conversationId: string, userId: string, isMuted: boolean): Promise<void> {
     try {
       await this.repository.update(
         { conversationId, userId },

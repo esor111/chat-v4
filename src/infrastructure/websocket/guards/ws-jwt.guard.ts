@@ -4,9 +4,9 @@ import { WsException } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
 
 interface AuthenticatedSocket extends Socket {
-  userId?: number;
+  userId?: string;
   user?: {
-    id: number;
+    id: string;
     name?: string;
   };
 }

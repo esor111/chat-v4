@@ -58,17 +58,17 @@ describe('Core Services Integration Tests', () => {
 
   describe('Profile Service Integration', () => {
     it('should provide mock user profiles', async () => {
-      const userProfile = await profileService.getUserProfile(1);
+      const userProfile = await profileService.getUserProfile('1');
       expect(userProfile).toBeDefined();
-      expect(userProfile?.id).toBe(1);
+      expect(userProfile?.id).toBe('1');
       expect(userProfile?.name).toBeDefined();
       expect(userProfile?.user_type).toBe('user');
     });
 
     it('should provide mock business profiles', async () => {
-      const businessProfile = await profileService.getBusinessProfile(100);
+      const businessProfile = await profileService.getBusinessProfile('100');
       expect(businessProfile).toBeDefined();
-      expect(businessProfile?.id).toBe(100);
+      expect(businessProfile?.id).toBe('100');
       expect(businessProfile?.name).toBeDefined();
       expect(businessProfile?.user_type).toBe('business');
       expect(businessProfile?.business_hours).toBeDefined();
@@ -76,8 +76,8 @@ describe('Core Services Integration Tests', () => {
 
     it('should support batch profile requests', async () => {
       const result = await profileService.getBatchProfiles({
-        user_ids: [1, 2],
-        business_ids: [100, 101],
+        user_ids: ['1', '2'],
+        business_ids: ['100', '101'],
       });
 
       expect(result.users).toHaveLength(2);
@@ -95,17 +95,17 @@ describe('Core Services Integration Tests', () => {
     });
 
     it('should handle non-existent profiles', async () => {
-      const userProfile = await profileService.getUserProfile(999);
+      const userProfile = await profileService.getUserProfile('999');
       expect(userProfile).toBeNull();
 
-      const businessProfile = await profileService.getBusinessProfile(999);
+      const businessProfile = await profileService.getBusinessProfile('999');
       expect(businessProfile).toBeNull();
     });
   });
 
   describe('Profile Cache Integration', () => {
     it('should cache and retrieve user profiles', async () => {
-      const userId = 1;
+      const userId = '1';
       
       // First request should fetch from mock service
       const profile1 = await profileCacheService.getUserProfile(userId);
@@ -118,7 +118,7 @@ describe('Core Services Integration Tests', () => {
     });
 
     it('should cache and retrieve business profiles', async () => {
-      const businessId = 100;
+      const businessId = '100';
       
       const profile = await profileCacheService.getBusinessProfile(businessId);
       expect(profile).toBeDefined();
@@ -128,8 +128,8 @@ describe('Core Services Integration Tests', () => {
 
     it('should handle batch profile requests', async () => {
       const result = await profileCacheService.getBatchProfiles({
-        user_ids: [1, 2],
-        business_ids: [100, 101],
+        user_ids: ['1', '2'],
+        business_ids: ['100', '101'],
       });
 
       expect(result.users.length).toBeGreaterThan(0);
@@ -137,8 +137,8 @@ describe('Core Services Integration Tests', () => {
     });
 
     it('should handle cache invalidation', () => {
-      profileCacheService.invalidateUserProfile(1);
-      profileCacheService.invalidateBusinessProfile(100);
+      profileCacheService.invalidateUserProfile('1');
+      profileCacheService.invalidateBusinessProfile('100');
       // Should not throw
     });
 
@@ -190,8 +190,8 @@ describe('Core Services Integration Tests', () => {
   describe('Cache Example Service Integration', () => {
     it('should demonstrate cache usage patterns', async () => {
       // Test user profile caching
-      await cacheExampleService.cacheUserProfile(1, { name: 'Test User', id: 1 });
-      const cachedProfile = await cacheExampleService.getUserProfile(1);
+      await cacheExampleService.cacheUserProfile('1', { name: 'Test User', id: '1' });
+      const cachedProfile = await cacheExampleService.getUserProfile('1');
       
       // Might be null if Redis is not running
       if (cachedProfile) {
@@ -200,27 +200,27 @@ describe('Core Services Integration Tests', () => {
     });
 
     it('should handle presence tracking', async () => {
-      await cacheExampleService.setUserPresence(1, 'online');
-      const presence = await cacheExampleService.getUserPresence(1);
+      await cacheExampleService.setUserPresence('1', 'online');
+      const presence = await cacheExampleService.getUserPresence('1');
       
       // Should return 'online' or 'offline' (fallback)
       expect(['online', 'offline']).toContain(presence);
     });
 
     it('should handle message queuing', async () => {
-      await cacheExampleService.queueOfflineMessage(1, 123);
-      const messages = await cacheExampleService.getQueuedMessages(1);
+      await cacheExampleService.queueOfflineMessage('1', '123');
+      const messages = await cacheExampleService.getQueuedMessages('1');
       
       // Might be empty if Redis is not running
       expect(Array.isArray(messages)).toBe(true);
     });
 
     it('should handle unread counts', async () => {
-      const count = await cacheExampleService.incrementUnreadCount(1, 100);
+      const count = await cacheExampleService.incrementUnreadCount('1', '100');
       expect(typeof count).toBe('number');
       expect(count).toBeGreaterThanOrEqual(0);
 
-      await cacheExampleService.resetUnreadCount(1, 100);
+      await cacheExampleService.resetUnreadCount('1', '100');
       // Should not throw
     });
 
@@ -237,14 +237,14 @@ describe('Core Services Integration Tests', () => {
   describe('Error Handling Integration', () => {
     it('should handle service errors gracefully', async () => {
       // Test that services don't crash on invalid input
-      await expect(profileService.getUserProfile(-1)).resolves.toBe(null);
-      await expect(profileCacheService.getUserProfile(-1)).resolves.toBe(null);
-      await expect(cacheExampleService.getUserProfile(-1)).resolves.toBe(null);
+      await expect(profileService.getUserProfile('-1')).resolves.toBe(null);
+      await expect(profileCacheService.getUserProfile('-1')).resolves.toBe(null);
+      await expect(cacheExampleService.getUserProfile('-1')).resolves.toBe(null);
     });
 
     it('should handle cache failures gracefully', async () => {
       // Even if Redis is down, services should not crash
-      const presence = await cacheExampleService.getUserPresence(999);
+      const presence = await cacheExampleService.getUserPresence('999');
       expect(['online', 'offline']).toContain(presence);
     });
   });
@@ -252,36 +252,36 @@ describe('Core Services Integration Tests', () => {
   describe('Data Flow Integration', () => {
     it('should demonstrate complete user profile flow', async () => {
       // 1. Get user profile from mock service
-      const userProfile = await profileService.getUserProfile(1);
+      const userProfile = await profileService.getUserProfile('1');
       expect(userProfile).toBeDefined();
 
       // 2. Cache the profile
-      const cachedProfile = await profileCacheService.getUserProfile(1);
+      const cachedProfile = await profileCacheService.getUserProfile('1');
       expect(cachedProfile).toBeDefined();
       expect(cachedProfile?.id).toBe(userProfile?.id);
 
       // 3. Set user presence
-      await cacheExampleService.setUserPresence(1, 'online');
-      const presence = await cacheExampleService.getUserPresence(1);
+      await cacheExampleService.setUserPresence('1', 'online');
+      const presence = await cacheExampleService.getUserPresence('1');
       expect(['online', 'offline']).toContain(presence);
     });
 
     it('should demonstrate business profile flow', async () => {
       // 1. Get business profile
-      const businessProfile = await profileService.getBusinessProfile(100);
+      const businessProfile = await profileService.getBusinessProfile('100');
       expect(businessProfile).toBeDefined();
       expect(businessProfile?.user_type).toBe('business');
       expect(businessProfile?.business_hours).toBeDefined();
 
       // 2. Cache the business profile
-      const cachedProfile = await profileCacheService.getBusinessProfile(100);
+      const cachedProfile = await profileCacheService.getBusinessProfile('100');
       expect(cachedProfile).toBeDefined();
       expect(cachedProfile?.id).toBe(businessProfile?.id);
 
       // 3. Test batch profile loading (user + business)
       const batchResult = await profileService.getBatchProfiles({
-        user_ids: [1],
-        business_ids: [100],
+        user_ids: ['1'],
+        business_ids: ['100'],
       });
       expect(batchResult.users).toHaveLength(1);
       expect(batchResult.businesses).toHaveLength(1);

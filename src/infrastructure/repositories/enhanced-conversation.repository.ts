@@ -10,8 +10,8 @@ import { StructuredLoggerService } from '@infrastructure/logging/structured-logg
 
 export interface CreateConversationParams {
   type: ConversationType;
-  createdBy: number;
-  participants: Array<{ userId: number; role: ParticipantRole }>;
+  createdBy: string;
+  participants: Array<{ userId: string; role: ParticipantRole }>;
   title?: string;
   description?: string;
 }
@@ -51,9 +51,7 @@ export class EnhancedConversationRepository {
 
       // Validate participants exist
       const userIds = params.participants.map(p => p.userId);
-      const users = await queryRunner.manager.find(User, {
-        where: userIds.map(id => ({ userId: id })),
-      });
+      const users = await queryRunner.manager.findByIds(User, userIds);
 
       if (users.length !== userIds.length) {
         throw new Error('One or more participants do not exist');
@@ -106,10 +104,10 @@ export class EnhancedConversationRepository {
   }
 
   async addParticipantToConversation(
-    conversationId: number,
-    userId: number,
+    conversationId: string,
+    userId: string,
     role: ParticipantRole,
-    addedBy: number,
+    addedBy: string,
   ): Promise<void> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -136,7 +134,7 @@ export class EnhancedConversationRepository {
       }
 
       // Validate user exists
-      const user = await queryRunner.manager.findOne(User, { where: { userId } });
+      const user = await queryRunner.manager.findOne(User, { where: { id: userId } });
       if (!user) {
         throw new Error('User not found');
       }
@@ -188,9 +186,9 @@ export class EnhancedConversationRepository {
   }
 
   async removeParticipantFromConversation(
-    conversationId: number,
-    userId: number,
-    removedBy: number,
+    conversationId: string,
+    userId: string,
+    removedBy: string,
     reason?: string,
   ): Promise<void> {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -260,7 +258,7 @@ export class EnhancedConversationRepository {
     }
   }
 
-  async findDirectConversationBetweenUsers(user1Id: number, user2Id: number): Promise<Conversation | null> {
+  async findDirectConversationBetweenUsers(user1Id: string, user2Id: string): Promise<Conversation | null> {
     try {
       const conversation = await this.conversationRepository
         .createQueryBuilder('conversation')
@@ -284,7 +282,7 @@ export class EnhancedConversationRepository {
     }
   }
 
-  async findGroupConversationsByUser(userId: number, limit: number = 50): Promise<Conversation[]> {
+  async findGroupConversationsByUser(userId: string, limit: number = 50): Promise<Conversation[]> {
     try {
       return await this.conversationRepository
         .createQueryBuilder('conversation')
@@ -305,7 +303,7 @@ export class EnhancedConversationRepository {
     }
   }
 
-  async findBusinessConversationsByUser(userId: number, limit: number = 50): Promise<Conversation[]> {
+  async findBusinessConversationsByUser(userId: string, limit: number = 50): Promise<Conversation[]> {
     try {
       return await this.conversationRepository
         .createQueryBuilder('conversation')
@@ -326,7 +324,7 @@ export class EnhancedConversationRepository {
     }
   }
 
-  async getConversationWithMetadata(conversationId: number, userId: number): Promise<ConversationWithMetadata | null> {
+  async getConversationWithMetadata(conversationId: string, userId: string): Promise<ConversationWithMetadata | null> {
     try {
       const result = await this.conversationRepository
         .createQueryBuilder('conversation')
@@ -374,7 +372,7 @@ export class EnhancedConversationRepository {
     }
   }
 
-  async updateLastActivityAndMessage(conversationId: number, messageId: number): Promise<void> {
+  async updateLastActivityAndMessage(conversationId: string, messageId: string): Promise<void> {
     try {
       await this.conversationRepository.update(conversationId, {
         lastMessageId: messageId,
