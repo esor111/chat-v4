@@ -18,7 +18,6 @@ export const databaseConfig = (): TypeOrmModuleOptions => {
     entities: [User, Conversation, Participant, Message],
     synchronize: configService.get<string>('NODE_ENV') === 'development',
     logging: configService.get<string>('NODE_ENV') === 'development' ? ['query', 'error'] : ['error'],
-    ssl: configService.get<boolean>('DB_SSL', false) ? { rejectUnauthorized: false } : false,
     
     // Connection pooling
     extra: {

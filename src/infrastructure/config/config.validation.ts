@@ -14,7 +14,6 @@ export const configValidationSchema = Joi.object({
   DB_USERNAME: Joi.string().required(),
   DB_PASSWORD: Joi.string().required(),
   DB_NAME: Joi.string().required(),
-  DB_SSL: Joi.boolean().default(false),
   DB_POOL_SIZE: Joi.number().default(10),
   DB_CONNECTION_TIMEOUT: Joi.number().default(60000),
   DB_IDLE_TIMEOUT: Joi.number().default(10000),

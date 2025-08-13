@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CacheHealthService } from '@infrastructure/cache/cache-health.service';
 import { ProfileMockService } from '@infrastructure/profile/profile-mock.service';
 
