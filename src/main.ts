@@ -54,6 +54,8 @@ async function bootstrap() {
         },
         'JWT-auth', // This name here is important for matching up with @ApiBearerAuth() in your controller!
       )
+      // Apply Bearer auth to all endpoints by default in Swagger
+      .addSecurityRequirements('JWT-auth')
       .addTag('health', 'Health check endpoints')
       .addTag('conversations', 'Conversation management endpoints')
       .addTag('messages', 'Message handling endpoints')

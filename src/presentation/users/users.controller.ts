@@ -1,9 +1,14 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '@infrastructure/auth/decorators/current-user.decorator';
 import { AuthUser } from '@infrastructure/auth/interfaces/auth.interface';
 import { StructuredLoggerService } from '@infrastructure/logging/structured-logger.service';
+import { JwtAuthGuard } from '@infrastructure/auth/guards/jwt-auth.guard';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
-@Controller('users')
+@ApiTags('users')
+@ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard)
+@Controller('api/users')
 export class UsersController {
   constructor(private readonly logger: StructuredLoggerService) {}
 

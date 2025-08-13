@@ -3,103 +3,68 @@
 -- Usage: psql -d your_database_name -f scripts/setup-test-data.sql
 
 -- Clean up existing test data (optional)
-DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE id BETWEEN 1 AND 10);
-DELETE FROM participants WHERE conversation_id BETWEEN 1 AND 10;
-DELETE FROM conversations WHERE id BETWEEN 1 AND 10;
-DELETE FROM users WHERE user_id BETWEEN 1 AND 200;
+-- UUIDs we will use in this script
+-- Users (provided)
+--   User A: c5c3d135-4968-450b-9fca-57f01e0055f7
+--   User B: afc70db3-6f43-4882-92fd-4715f25ffc95
+-- Conversation (generated for test data)
+--   Conv 1: 9f1b0c3e-9c0e-4a3b-9a52-3f7f2b1a8b21
+
+-- Remove existing rows for the same IDs (idempotent-ish)
+DELETE FROM messages WHERE conversation_id IN ('9f1b0c3e-9c0e-4a3b-9a52-3f7f2b1a8b21');
+DELETE FROM participants WHERE conversation_id IN ('9f1b0c3e-9c0e-4a3b-9a52-3f7f2b1a8b21');
+DELETE FROM conversations WHERE id IN ('9f1b0c3e-9c0e-4a3b-9a52-3f7f2b1a8b21');
+DELETE FROM users WHERE user_id IN (
+  'c5c3d135-4968-450b-9fca-57f01e0055f7',
+  'afc70db3-6f43-4882-92fd-4715f25ffc95'
+);
 
 -- Insert test users (regular users)
 INSERT INTO users (user_id, created_at) VALUES 
-(1, NOW()),
-(2, NOW()),
-(3, NOW()),
-(4, NOW()),
-(5, NOW());
+('c5c3d135-4968-450b-9fca-57f01e0055f7', NOW()),
+('afc70db3-6f43-4882-92fd-4715f25ffc95', NOW());
 
 -- Insert test business users
-INSERT INTO users (user_id, created_at) VALUES 
-(100, NOW()),
-(101, NOW()),
-(102, NOW()),
-(103, NOW());
+-- Optional: add business users if needed. Commented out by default.
+-- INSERT INTO users (user_id, created_at) VALUES 
+-- ('2a5c5c2d-5a6b-4a2a-9b7e-2f5d6e7a8b9c', NOW()),
+-- ('3b6d7e8f-9a0b-4c1d-8e2f-3a4b5c6d7e8f', NOW());
+
 
 -- Insert test conversations
 INSERT INTO conversations (id, type, created_at, last_activity) VALUES 
-(1, 'direct', NOW() - INTERVAL '1 day', NOW() - INTERVAL '1 hour'),
-(2, 'direct', NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 hours'),
-(3, 'group', NOW() - INTERVAL '3 days', NOW() - INTERVAL '30 minutes'),
-(4, 'business', NOW() - INTERVAL '1 day', NOW() - INTERVAL '15 minutes'),
-(5, 'business', NOW() - INTERVAL '2 days', NOW() - INTERVAL '1 day');
+('9f1b0c3e-9c0e-4a3b-9a52-3f7f2b1a8b21', 'direct', NOW() - INTERVAL '1 day', NOW() - INTERVAL '1 hour');
 
--- Reset sequence for conversations (if using serial)
-SELECT setval('conversations_id_seq', 10, true);
+-- No sequence to reset; conversation IDs are UUIDs
 
--- Insert participants for direct conversation (User 1 <-> User 2)
+-- Insert participants for the direct conversation (User A <-> User B)
 INSERT INTO participants (conversation_id, user_id, role, is_muted, last_read_message_id) VALUES 
-(1, 1, 'member', false, NULL),
-(1, 2, 'member', false, NULL);
+('9f1b0c3e-9c0e-4a3b-9a52-3f7f2b1a8b21', 'c5c3d135-4968-450b-9fca-57f01e0055f7', 'member', false, NULL),
+('9f1b0c3e-9c0e-4a3b-9a52-3f7f2b1a8b21', 'afc70db3-6f43-4882-92fd-4715f25ffc95', 'member', false, NULL);
 
--- Insert participants for another direct conversation (User 1 <-> User 3)
-INSERT INTO participants (conversation_id, user_id, role, is_muted, last_read_message_id) VALUES 
-(2, 1, 'member', false, NULL),
-(2, 3, 'member', false, NULL);
+-- Additional conversations omitted for brevity. Add more UUIDs if needed.
 
--- Insert participants for group conversation (Users 1, 2, 3, 4)
-INSERT INTO participants (conversation_id, user_id, role, is_muted, last_read_message_id) VALUES 
-(3, 1, 'admin', false, NULL),
-(3, 2, 'member', false, NULL),
-(3, 3, 'member', false, NULL),
-(3, 4, 'member', true, NULL); -- User 4 has muted this conversation
+-- Example for a group conversation would require an additional conversation UUID and user UUIDs.
 
--- Insert participants for business conversation (User 1 <-> Business 100)
-INSERT INTO participants (conversation_id, user_id, role, is_muted, last_read_message_id) VALUES 
-(4, 1, 'customer', false, NULL),
-(4, 100, 'business', false, NULL);
+-- Business conversation example omitted. Add business user UUIDs if you enable them above.
 
--- Insert participants for another business conversation (User 2 <-> Business 101)
-INSERT INTO participants (conversation_id, user_id, role, is_muted, last_read_message_id) VALUES 
-(5, 2, 'customer', false, NULL),
-(5, 101, 'business', false, NULL);
+-- Business conversation example omitted.
 
--- Insert test messages for conversation 1 (User 1 <-> User 2)
+-- Insert test messages for the direct conversation
 INSERT INTO messages (conversation_id, sender_id, content, sent_at, type) VALUES 
-(1, 1, 'Hello there!', NOW() - INTERVAL '2 hours', 'text'),
-(1, 2, 'Hi! How are you?', NOW() - INTERVAL '1 hour 50 minutes', 'text'),
-(1, 1, 'I''m doing great, thanks for asking!', NOW() - INTERVAL '1 hour 45 minutes', 'text'),
-(1, 2, 'That''s wonderful to hear 😊', NOW() - INTERVAL '1 hour 30 minutes', 'text'),
-(1, 1, 'What are you up to today?', NOW() - INTERVAL '1 hour', 'text');
+('9f1b0c3e-9c0e-4a3b-9a52-3f7f2b1a8b21', 'c5c3d135-4968-450b-9fca-57f01e0055f7', 'Hello there!', NOW() - INTERVAL '2 hours', 'text'),
+('9f1b0c3e-9c0e-4a3b-9a52-3f7f2b1a8b21', 'afc70db3-6f43-4882-92fd-4715f25ffc95', 'Hi! How are you?', NOW() - INTERVAL '1 hour 50 minutes', 'text'),
+('9f1b0c3e-9c0e-4a3b-9a52-3f7f2b1a8b21', 'c5c3d135-4968-450b-9fca-57f01e0055f7', 'I''m doing great, thanks for asking!', NOW() - INTERVAL '1 hour 45 minutes', 'text'),
+('9f1b0c3e-9c0e-4a3b-9a52-3f7f2b1a8b21', 'afc70db3-6f43-4882-92fd-4715f25ffc95', 'That''s wonderful to hear 😊', NOW() - INTERVAL '1 hour 30 minutes', 'text'),
+('9f1b0c3e-9c0e-4a3b-9a52-3f7f2b1a8b21', 'c5c3d135-4968-450b-9fca-57f01e0055f7', 'What are you up to today?', NOW() - INTERVAL '1 hour', 'text');
 
--- Insert test messages for conversation 2 (User 1 <-> User 3)
-INSERT INTO messages (conversation_id, sender_id, content, sent_at, type) VALUES 
-(2, 1, 'Hey, are we still meeting tomorrow?', NOW() - INTERVAL '3 hours', 'text'),
-(2, 3, 'Yes, absolutely! Same time and place.', NOW() - INTERVAL '2 hours 30 minutes', 'text'),
-(2, 1, 'Perfect, see you then!', NOW() - INTERVAL '2 hours', 'text');
+-- Additional conversations omitted.
 
--- Insert test messages for group conversation (Users 1, 2, 3, 4)
-INSERT INTO messages (conversation_id, sender_id, content, sent_at, type) VALUES 
-(3, 1, 'Welcome everyone to our project group!', NOW() - INTERVAL '1 day', 'text'),
-(3, 2, 'Thanks for setting this up!', NOW() - INTERVAL '23 hours', 'text'),
-(3, 3, 'Excited to work together 🚀', NOW() - INTERVAL '22 hours', 'text'),
-(3, 1, 'Let''s schedule our first meeting', NOW() - INTERVAL '21 hours', 'text'),
-(3, 4, 'I''m available Monday through Wednesday', NOW() - INTERVAL '20 hours', 'text'),
-(3, 2, 'Monday works for me too', NOW() - INTERVAL '19 hours', 'text'),
-(3, 1, 'Great! Monday at 2 PM it is.', NOW() - INTERVAL '30 minutes', 'text');
+-- Additional conversations omitted.
 
--- Insert test messages for business conversation (User 1 <-> Business 100)
-INSERT INTO messages (conversation_id, sender_id, content, sent_at, type) VALUES 
-(4, 1, 'Hi, I have a question about your product', NOW() - INTERVAL '2 hours', 'text'),
-(4, 100, 'Hello! I''d be happy to help. What would you like to know?', NOW() - INTERVAL '1 hour 55 minutes', 'text'),
-(4, 1, 'I''m interested in the premium features. Can you tell me more?', NOW() - INTERVAL '1 hour 50 minutes', 'text'),
-(4, 100, 'Certainly! Our premium features include...', NOW() - INTERVAL '1 hour 45 minutes', 'text'),
-(4, 1, 'That sounds great! How much does it cost?', NOW() - INTERVAL '1 hour 30 minutes', 'text'),
-(4, 100, 'The premium plan is $29/month. Would you like to upgrade?', NOW() - INTERVAL '15 minutes', 'text');
+-- Additional conversations omitted.
 
--- Insert test messages for another business conversation (User 2 <-> Business 101)
-INSERT INTO messages (conversation_id, sender_id, content, sent_at, type) VALUES 
-(5, 2, 'I need help with my recent order', NOW() - INTERVAL '1 day', 'text'),
-(5, 101, 'I''m sorry to hear you''re having issues. Can you provide your order number?', NOW() - INTERVAL '23 hours', 'text'),
-(5, 2, 'Sure, it''s #12345', NOW() - INTERVAL '22 hours', 'text'),
-(5, 101, 'Thank you. I see your order here. What seems to be the problem?', NOW() - INTERVAL '21 hours', 'text');
+-- Additional conversations omitted.
 
 -- Update last_message_id for conversations
 UPDATE conversations SET last_message_id = (
@@ -109,12 +74,12 @@ UPDATE conversations SET last_message_id = (
 -- Update last_read_message_id for some participants (simulate read status)
 UPDATE participants SET last_read_message_id = (
   SELECT id FROM messages WHERE conversation_id = participants.conversation_id ORDER BY sent_at DESC LIMIT 1
-) WHERE conversation_id IN (1, 2) AND user_id IN (1, 2, 3);
+) WHERE conversation_id IN ('9f1b0c3e-9c0e-4a3b-9a52-3f7f2b1a8b21') AND user_id IN (
+  'c5c3d135-4968-450b-9fca-57f01e0055f7',
+  'afc70db3-6f43-4882-92fd-4715f25ffc95'
+);
 
--- Leave some messages unread in group and business conversations
-UPDATE participants SET last_read_message_id = (
-  SELECT id FROM messages WHERE conversation_id = participants.conversation_id ORDER BY sent_at ASC LIMIT 1
-) WHERE conversation_id IN (3, 4, 5);
+-- Skipped for now; only one conversation is inserted.
 
 -- Display summary of test data
 SELECT 'Test Data Summary' as info;
@@ -133,7 +98,7 @@ SELECT
 FROM conversations c
 LEFT JOIN participants p ON c.id = p.conversation_id
 LEFT JOIN messages m ON c.id = m.conversation_id
-WHERE c.id BETWEEN 1 AND 10
+WHERE c.id IN ('9f1b0c3e-9c0e-4a3b-9a52-3f7f2b1a8b21')
 GROUP BY c.id, c.type, c.last_activity
 ORDER BY c.id;
 
