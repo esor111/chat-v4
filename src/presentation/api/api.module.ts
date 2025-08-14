@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConversationsController } from './conversations/conversations.controller';
+import { SimpleConversationsController } from './conversations/simple-conversations.controller';
 import { HealthController } from './health/health.controller';
 import { ServicesModule } from '@application/services/services.module';
 import { RepositoryModule } from '@infrastructure/repositories/repository.module';
@@ -15,6 +16,7 @@ import { CacheModule } from '@infrastructure/cache/cache.module';
   ],
   controllers: [
     ConversationsController,
+    SimpleConversationsController,
     HealthController,
   ],
 })

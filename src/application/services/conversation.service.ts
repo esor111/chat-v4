@@ -90,7 +90,7 @@ export class ConversationService {
     }
 
     // Validate user exists
-    const user = await this.userRepository.findOne({ where: { id: userId } });
+    const user = await this.userRepository.findOne({ where: { userId: userId } });
     if (!user) {
       throw new Error('User not found');
     }

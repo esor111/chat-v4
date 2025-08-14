@@ -134,7 +134,7 @@ export class EnhancedConversationRepository {
       }
 
       // Validate user exists
-      const user = await queryRunner.manager.findOne(User, { where: { id: userId } });
+      const user = await queryRunner.manager.findOne(User, { where: { userId: userId } });
       if (!user) {
         throw new Error('User not found');
       }

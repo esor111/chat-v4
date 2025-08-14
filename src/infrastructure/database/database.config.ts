@@ -16,7 +16,7 @@ export const databaseConfig = (): TypeOrmModuleOptions => {
     password: configService.get<string>('DB_PASSWORD'),
     database: configService.get<string>('DB_NAME'),
     entities: [User, Conversation, Participant, Message],
-    synchronize: configService.get<string>('NODE_ENV') === 'development',
+    synchronize: false, // Disable auto-sync to prevent schema conflicts
     logging: configService.get<string>('NODE_ENV') === 'development' ? ['query', 'error'] : ['error'],
     
     // Connection pooling

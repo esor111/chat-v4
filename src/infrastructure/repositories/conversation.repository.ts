@@ -38,7 +38,7 @@ export class ConversationRepository implements IConversationRepository {
       
       let query = this.repository
         .createQueryBuilder('conversation')
-        .where('conversation.id IN (:...ids)', { ids: conversationIds })
+        .where('conversation.conversation_id IN (:...ids)', { ids: conversationIds.map(id => parseInt(id)) })
         .orderBy('conversation.lastActivity', 'DESC');
 
       if (limit) {

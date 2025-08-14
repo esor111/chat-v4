@@ -3,16 +3,16 @@ import { User } from './user.entity';
 describe('User Entity', () => {
   it('should create a user entity', () => {
     const user = new User();
-    user.id = '123';
+    user.userId = '123';
 
-    expect(user.id).toBe('123');
+    expect(user.userId).toBe('123');
     expect(user).toBeInstanceOf(User);
   });
 
-  it('should have id property', () => {
+  it('should have userId property', () => {
     const user = new User();
-    user.id = '456';
+    user.userId = '456';
     
-    expect(user.id).toBe('456');
+    expect(user.userId).toBe('456');
   });
 });

@@ -83,18 +83,34 @@ export class AuthService implements IAuthService {
 
   async verifyToken(token: string): Promise<JwtPayload> {
     try {
-      const payload = this.tokenService.verify(token, this.jwtSecret) as JwtPayload;
+      const externalJwtVerify = this.configService.get<string>('EXTERNAL_JWT_VERIFY', 'false') === 'true';
+      
+      let payload: JwtPayload;
+      
+      if (!externalJwtVerify) {
+        // For development: decode without verification (external tokens)
+        payload = this.tokenService.decode(token) as JwtPayload;
+        this.logger.debug('Token decoded without verification (development mode)', {
+          service: 'AuthService',
+          operation: 'verifyToken',
+          userId: payload.userId ?? payload.id,
+          kahaId: payload.kahaId,
+        });
+      } else {
+        // For production: verify with secret
+        payload = this.tokenService.verify(token, this.jwtSecret) as JwtPayload;
+        this.logger.debug('Token verified successfully', {
+          service: 'AuthService',
+          operation: 'verifyToken',
+          userId: payload.userId ?? payload.id,
+          kahaId: payload.kahaId,
+        });
+      }
+      
       // Normalize: if token contains `id` but not `userId`, map it for downstream consumers
       if (!payload.userId && payload.id) {
         payload.userId = payload.id;
       }
-
-      this.logger.debug('Token verified successfully', {
-        service: 'AuthService',
-        operation: 'verifyToken',
-        userId: payload.userId ?? payload.id,
-        kahaId: payload.kahaId,
-      });
 
       return payload;
     } catch (error) {

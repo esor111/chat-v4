@@ -1,16 +1,17 @@
-import { Entity, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { BaseEntity } from './base.entity';
+import { Entity, Column, CreateDateColumn, ManyToOne, JoinColumn, PrimaryGeneratedColumn } from 'typeorm';
 import { Conversation } from './conversation.entity';
 import { User } from './user.entity';
 import { MessageContent } from '@domain/value-objects/message-content.vo';
 import { MessageType } from '@domain/value-objects/message-type.vo';
 
 @Entity('messages')
-export class Message extends BaseEntity {
-  @Column({ name: 'conversation_id', type: 'uuid' })
+export class Message {
+  @PrimaryGeneratedColumn({ name: 'message_id' })
+  id: string;
+  @Column({ name: 'conversation_id', type: 'integer' })
   conversationId: string;
 
-  @Column({ name: 'sender_id', type: 'uuid' })
+  @Column({ name: 'sender_id', type: 'varchar', length: 255 })
   senderId: string;
 
   @Column({
