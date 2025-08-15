@@ -4,7 +4,6 @@ import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { LoggingInterceptor } from '@infrastructure/logging/logging.interceptor';
-import { CorrelationIdMiddleware } from '@infrastructure/logging/correlation-id.middleware';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');

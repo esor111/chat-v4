@@ -8,27 +8,31 @@ import {
   MessageBody,
   ConnectedSocket,
 } from "@nestjs/websockets";
-import { Logger, UseGuards, Inject, forwardRef } from "@nestjs/common";
+import { Logger, UseGuards } from "@nestjs/common";
 import { Server, Socket } from "socket.io";
-import { JwtService } from "@nestjs/jwt";
 import { WsJwtGuard } from "./guards/ws-jwt.guard";
+import {
+  ClientToServerEvents,
+  ServerToClientEvents,
+  MessagePayload,
+  JoinRoomPayload,
+  TypingPayload,
+  MarkAsReadPayload,
+} from "./types/websocket-events.types";
+import { WebSocketConnectionService } from "./services/websocket-connection.service";
+import { WebSocketBroadcastService } from "./services/websocket-broadcast.service";
+import { ConversationAccessService } from "./services/conversation-access.service";
+import { WebSocketErrorService } from "./services/websocket-error.service";
+import { InputSanitizationService } from "./services/input-sanitization.service";
+import { RateLimitingService } from "./services/rate-limiting.service";
+import { WebSocketMessageHandlerService } from "./services/websocket-message-handler.service";
 
-interface AuthenticatedSocket extends Socket {
+interface AuthenticatedSocket extends Socket<ClientToServerEvents, ServerToClientEvents> {
   userId?: string;
   user?: {
     id: string;
     name?: string;
   };
-}
-
-interface MessagePayload {
-  conversation_id: number;
-  content: string;
-  message_type?: string;
-}
-
-interface JoinRoomPayload {
-  conversation_id: number;
 }
 
 @WebSocketGateway({
@@ -46,13 +50,26 @@ export class ChatGateway
   server: Server;
 
   private readonly logger = new Logger(ChatGateway.name);
-  private readonly connectedUsers = new Map<string, AuthenticatedSocket[]>();
   private messageService: any; // Will be injected later to avoid circular dependency
 
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly connectionService: WebSocketConnectionService,
+    private readonly broadcastService: WebSocketBroadcastService,
+    private readonly accessService: ConversationAccessService,
+    private readonly errorService: WebSocketErrorService,
+    private readonly sanitizationService: InputSanitizationService,
+    private readonly rateLimitingService: RateLimitingService,
+    private readonly messageHandlerService: WebSocketMessageHandlerService,
+  ) {}
 
   afterInit(server: Server) {
+    this.broadcastService.setServer(server);
     this.logger.log("WebSocket Gateway initialized");
+
+    // Set up periodic cleanup for rate limiting
+    setInterval(() => {
+      this.rateLimitingService.cleanup();
+    }, 300000); // Clean up every 5 minutes
   }
 
   /**
@@ -67,37 +84,11 @@ export class ChatGateway
     try {
       this.logger.log(`Client attempting to connect: ${client.id}`);
 
-      // Extract token from handshake auth or query
-      const token = this.extractTokenFromClient(client);
-
-      if (!token) {
-        this.logger.warn(`No token provided for client ${client.id}`);
+      const authenticated = await this.connectionService.authenticateSocket(client);
+      if (!authenticated) {
         client.disconnect();
         return;
       }
-
-      // Verify JWT token
-      const payload = await this.verifyToken(token);
-      if (!payload) {
-        this.logger.warn(`Invalid token for client ${client.id}`);
-        client.disconnect();
-        return;
-      }
-
-      // Attach user info to socket (handle both id and userId fields)
-      const userId = payload.userId || payload.id || payload.sub;
-      client.userId = userId;
-      client.user = {
-        id: userId,
-        name: payload.name,
-      };
-
-      // Track connected user
-      this.addUserConnection(client.userId, client);
-
-      this.logger.log(
-        `User ${client.userId} connected with socket ${client.id}`
-      );
 
       // Send connection confirmation
       client.emit("connected", {
@@ -106,10 +97,13 @@ export class ChatGateway
       });
 
       // Deliver offline messages if message service is available
-      // Temporarily disabled to fix schema issues
-      // if (this.messageService) {
-      //   await this.messageService.deliverOfflineMessages(client.userId);
-      // }
+      if (this.messageService) {
+        try {
+          await this.messageService.deliverOfflineMessages(client.userId);
+        } catch (error) {
+          this.logger.warn('Failed to deliver offline messages', { error: error.message, userId: client.userId });
+        }
+      }
     } catch (error) {
       this.logger.error(`Connection error for client ${client.id}:`, error);
       client.disconnect();
@@ -117,14 +111,7 @@ export class ChatGateway
   }
 
   handleDisconnect(client: AuthenticatedSocket) {
-    if (client.userId) {
-      this.removeUserConnection(client.userId, client);
-      this.logger.log(
-        `User ${client.userId} disconnected (socket ${client.id})`
-      );
-    } else {
-      this.logger.log(`Unauthenticated client disconnected: ${client.id}`);
-    }
+    this.connectionService.disconnectUser(client);
   }
 
   @UseGuards(WsJwtGuard)
@@ -137,6 +124,16 @@ export class ChatGateway
       const { conversation_id } = data;
       const roomName = `conversation_${conversation_id}`;
 
+      // Validate user can access this conversation
+      const accessResult = await this.accessService.validateAccess(client.userId, conversation_id.toString());
+      if (!accessResult.allowed) {
+        client.emit("join_error", {
+          message: accessResult.reason || "Access denied to this conversation",
+          conversation_id,
+        });
+        return;
+      }
+
       // Join the conversation room
       await client.join(roomName);
 
@@ -148,6 +145,7 @@ export class ChatGateway
       client.emit("joined_conversation", {
         conversation_id,
         message: `Joined conversation ${conversation_id}`,
+        timestamp: new Date().toISOString(),
       });
 
       // Notify other participants that user joined (optional)
@@ -155,12 +153,26 @@ export class ChatGateway
         conversation_id,
         user_id: client.userId,
         user_name: client.user?.name,
+        timestamp: new Date().toISOString(),
       });
+
+      // Send recent messages to the user
+      if (this.messageService) {
+        try {
+          const recentMessages = await this.messageService.getRecentMessages(conversation_id.toString(), 20);
+          client.emit("conversation_history", {
+            conversation_id,
+            messages: recentMessages.messages,
+          });
+        } catch (error) {
+          this.logger.warn(`Failed to load recent messages for conversation ${conversation_id}:`, error);
+        }
+      }
     } catch (error) {
       this.logger.error(`Error joining conversation:`, error);
-      client.emit("error", {
+      client.emit("join_error", {
         message: "Failed to join conversation",
-        error: error.message,
+        conversation_id: data.conversation_id,
       });
     }
   }
@@ -203,39 +215,41 @@ export class ChatGateway
     @ConnectedSocket() client: AuthenticatedSocket
   ) {
     try {
-      const { conversation_id, content, message_type = "text" } = data;
+      // Validate message request
+      const validation = await this.messageHandlerService.validateMessageRequest(client, data);
+      if (!validation.isValid) {
+        this.messageHandlerService.sendMessageError(client, validation.error, data.conversation_id);
+        return;
+      }
 
       if (!this.messageService) {
         // Fallback to simple broadcasting without persistence
-        return this.handleMessageFallback(data, client);
+        return this.handleMessageFallback(data, client, validation.sanitizedContent);
       }
 
       // Use message service for validation, persistence, and broadcasting
       const result = await this.messageService.sendMessage({
         senderId: client.userId,
-        conversationId: conversation_id,
-        content,
-        messageType: message_type,
+        conversationId: data.conversation_id.toString(),
+        content: data.content,
+        messageType: data.message_type || 'text',
       });
 
       if (result.success) {
-        // Send confirmation to sender
-        client.emit("message_sent", {
-          message_id: result.message.messageId,
-          conversation_id: result.message.conversationId,
-          sent_at: result.message.sentAt,
-        });
+        this.messageHandlerService.sendMessageConfirmation(
+          client,
+          result.message.messageId,
+          result.message.conversationId,
+          result.message.sentAt
+        );
+
+        this.logger.log(`Message sent successfully by user ${client.userId} to conversation ${data.conversation_id}`);
       } else {
-        client.emit("error", {
-          message: result.error || "Failed to send message",
-        });
+        this.messageHandlerService.sendMessageError(client, result.error || "Failed to send message", data.conversation_id);
       }
     } catch (error) {
       this.logger.error(`Error handling message:`, error);
-      client.emit("error", {
-        message: "Failed to send message",
-        error: error.message,
-      });
+      this.errorService.handleError(client, error, 'send_message');
     }
   }
 
@@ -244,53 +258,43 @@ export class ChatGateway
    */
   private async handleMessageFallback(
     data: MessagePayload,
-    client: AuthenticatedSocket
+    client: AuthenticatedSocket,
+    sanitizedContent: string
   ) {
-    const { conversation_id, content, message_type = "text" } = data;
-
-    if (!content || content.trim().length === 0) {
-      client.emit("error", {
-        message: "Message content cannot be empty",
-      });
-      return;
-    }
-
     // Create message object without database storage
-    const message = {
-      message_id: Date.now(), // Temporary ID
-      conversation_id,
-      sender_id: client.userId,
-      sender_name: client.user?.name,
-      content: content.trim(),
-      message_type,
-      sent_at: new Date().toISOString(),
-    };
-
-    const roomName = `conversation_${conversation_id}`;
+    const message = this.messageHandlerService.createFallbackMessage(client, data, sanitizedContent);
+    const roomName = `conversation_${data.conversation_id}`;
 
     this.logger.log(
-      `User ${client.userId} sent message to conversation ${conversation_id} (fallback mode)`
+      `User ${client.userId} sent message to conversation ${data.conversation_id} (fallback mode)`
     );
 
     // Broadcast message to all participants in the conversation
     this.server.to(roomName).emit("new_message", message);
 
     // Send confirmation to sender
-    client.emit("message_sent", {
-      message_id: message.message_id,
-      conversation_id,
-      sent_at: message.sent_at,
-    });
+    this.messageHandlerService.sendMessageConfirmation(
+      client,
+      message.message_id,
+      message.conversation_id,
+      message.sent_at
+    );
   }
 
   @UseGuards(WsJwtGuard)
   @SubscribeMessage("typing_start")
   async handleTypingStart(
-    @MessageBody() data: { conversation_id: number },
+    @MessageBody() data: TypingPayload,
     @ConnectedSocket() client: AuthenticatedSocket
   ) {
     try {
       const { conversation_id } = data;
+
+      // Check rate limiting for typing events
+      if (!this.rateLimitingService.isWithinLimit(client.userId, 'typing')) {
+        return; // Silently ignore excessive typing events
+      }
+
       const roomName = `conversation_${conversation_id}`;
 
       // Broadcast typing indicator to other participants (not sender)
@@ -299,6 +303,7 @@ export class ChatGateway
         user_id: client.userId,
         user_name: client.user?.name,
         is_typing: true,
+        timestamp: new Date().toISOString(),
       });
 
       this.logger.debug(
@@ -312,7 +317,7 @@ export class ChatGateway
   @UseGuards(WsJwtGuard)
   @SubscribeMessage("typing_stop")
   async handleTypingStop(
-    @MessageBody() data: { conversation_id: number },
+    @MessageBody() data: TypingPayload,
     @ConnectedSocket() client: AuthenticatedSocket
   ) {
     try {
@@ -325,6 +330,7 @@ export class ChatGateway
         user_id: client.userId,
         user_name: client.user?.name,
         is_typing: false,
+        timestamp: new Date().toISOString(),
       });
 
       this.logger.debug(
@@ -335,30 +341,55 @@ export class ChatGateway
     }
   }
 
+  @UseGuards(WsJwtGuard)
+  @SubscribeMessage("mark_as_read")
+  async handleMarkAsRead(
+    @MessageBody() data: MarkAsReadPayload,
+    @ConnectedSocket() client: AuthenticatedSocket
+  ) {
+    try {
+      const { conversation_id, message_id } = data;
+
+      if (this.messageService) {
+        await this.messageService.markMessagesAsRead(
+          client.userId,
+          conversation_id.toString(),
+          message_id
+        );
+
+        // Notify other participants about read status
+        const roomName = `conversation_${conversation_id}`;
+        client.to(roomName).emit("message_read", {
+          conversation_id,
+          user_id: client.userId,
+          message_id,
+          timestamp: new Date().toISOString(),
+        });
+
+        client.emit("marked_as_read", {
+          conversation_id,
+          message_id,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      this.logger.error(`Error marking messages as read:`, error);
+      client.emit("error", {
+        message: "Failed to mark messages as read",
+        error: error.message,
+      });
+    }
+  }
+
   /**
    * Send message to specific user (for offline message delivery)
    */
   async sendMessageToUser(
     userId: string,
-    event: string,
+    event: keyof ServerToClientEvents,
     data: any
   ): Promise<boolean> {
-    const userSockets = this.connectedUsers.get(userId);
-
-    if (!userSockets || userSockets.length === 0) {
-      this.logger.debug(`User ${userId} is not connected`);
-      return false;
-    }
-
-    // Send to all user's connected sockets
-    userSockets.forEach((socket) => {
-      socket.emit(event, data);
-    });
-
-    this.logger.debug(
-      `Sent ${event} to user ${userId} (${userSockets.length} sockets)`
-    );
-    return true;
+    return this.broadcastService.sendMessageToUser(userId, event, data);
   }
 
   /**
@@ -366,95 +397,32 @@ export class ChatGateway
    */
   async sendMessageToConversation(
     conversationId: string,
-    event: string,
+    event: keyof ServerToClientEvents,
     data: any
   ): Promise<void> {
-    const roomName = `conversation_${conversationId}`;
-    this.server.to(roomName).emit(event, data);
-    this.logger.debug(`Sent ${event} to conversation ${conversationId}`);
+    return this.broadcastService.sendMessageToConversation(conversationId, event, data);
   }
 
   /**
    * Get connected users count
    */
   getConnectedUsersCount(): number {
-    return this.connectedUsers.size;
+    return this.connectionService.getConnectedUsersCount();
   }
 
   /**
    * Check if user is connected
    */
   isUserConnected(userId: string): boolean {
-    const userSockets = this.connectedUsers.get(userId);
-    return !!(userSockets && userSockets.length > 0);
+    return this.connectionService.isUserConnected(userId);
   }
 
   /**
    * Get user's socket count
    */
   getUserSocketCount(userId: string): number {
-    const userSockets = this.connectedUsers.get(userId);
-    return userSockets ? userSockets.length : 0;
+    return this.connectionService.getUserSocketCount(userId);
   }
 
-  private extractTokenFromClient(client: AuthenticatedSocket): string | null {
-    // Try to get token from auth header
-    const authHeader = client.handshake.headers.authorization;
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      return authHeader.substring(7);
-    }
 
-    // Try to get token from query parameters
-    const tokenFromQuery = client.handshake.query.token;
-    if (typeof tokenFromQuery === "string") {
-      return tokenFromQuery;
-    }
-
-    // Try to get token from auth object
-    const tokenFromAuth = client.handshake.auth?.token;
-    if (typeof tokenFromAuth === "string") {
-      return tokenFromAuth;
-    }
-
-    return null;
-  }
-
-  private async verifyToken(token: string): Promise<any> {
-    try {
-      // Use decode instead of verify for external tokens (development mode)
-      const payload = this.jwtService.decode(token);
-      if (!payload) {
-        throw new Error('Invalid token format');
-      }
-      return payload;
-    } catch (error) {
-      this.logger.warn(`Token verification failed:`, error.message);
-      return null;
-    }
-  }
-
-  private addUserConnection(userId: string, socket: AuthenticatedSocket): void {
-    if (!this.connectedUsers.has(userId)) {
-      this.connectedUsers.set(userId, []);
-    }
-    this.connectedUsers.get(userId)!.push(socket);
-  }
-
-  private removeUserConnection(
-    userId: string,
-    socket: AuthenticatedSocket
-  ): void {
-    const userSockets = this.connectedUsers.get(userId);
-    if (userSockets) {
-      const index = userSockets.indexOf(socket);
-      if (index > -1) {
-        userSockets.splice(index, 1);
-      }
-
-      // Remove user entry if no more sockets
-      if (userSockets.length === 0) {
-        this.connectedUsers.delete(userId);
-      }
-    }
-  }
 }

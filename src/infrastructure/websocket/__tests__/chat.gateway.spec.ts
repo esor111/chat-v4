@@ -2,6 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { ChatGateway } from '../chat.gateway';
 import { WsJwtGuard } from '../guards/ws-jwt.guard';
+import { WebSocketConnectionService } from '../services/websocket-connection.service';
+import { WebSocketBroadcastService } from '../services/websocket-broadcast.service';
+import { ConversationAccessService } from '../services/conversation-access.service';
+import { WebSocketErrorService } from '../services/websocket-error.service';
+import { InputSanitizationService } from '../services/input-sanitization.service';
+import { RateLimitingService } from '../services/rate-limiting.service';
+import { WebSocketMessageHandlerService } from '../services/websocket-message-handler.service';
 
 // Mock Socket.IO
 const mockSocket = {
@@ -31,6 +38,13 @@ const mockServer = {
 describe('ChatGateway', () => {
   let gateway: ChatGateway;
   let jwtService: JwtService;
+  let connectionService: WebSocketConnectionService;
+  let broadcastService: WebSocketBroadcastService;
+  let accessService: ConversationAccessService;
+  let errorService: WebSocketErrorService;
+  let sanitizationService: InputSanitizationService;
+  let rateLimitingService: RateLimitingService;
+  let messageHandlerService: WebSocketMessageHandlerService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -41,6 +55,61 @@ describe('ChatGateway', () => {
           provide: JwtService,
           useValue: {
             verifyAsync: jest.fn(),
+            decode: jest.fn(),
+          },
+        },
+        {
+          provide: WebSocketConnectionService,
+          useValue: {
+            authenticateSocket: jest.fn(),
+            disconnectUser: jest.fn(),
+            getConnectedUsersCount: jest.fn().mockReturnValue(0),
+            isUserConnected: jest.fn().mockReturnValue(false),
+            getUserSocketCount: jest.fn().mockReturnValue(0),
+          },
+        },
+        {
+          provide: WebSocketBroadcastService,
+          useValue: {
+            setServer: jest.fn(),
+            sendMessageToUser: jest.fn(),
+            sendMessageToConversation: jest.fn(),
+          },
+        },
+        {
+          provide: ConversationAccessService,
+          useValue: {
+            validateAccess: jest.fn(),
+            canSendMessage: jest.fn(),
+          },
+        },
+        {
+          provide: WebSocketErrorService,
+          useValue: {
+            handleError: jest.fn(),
+          },
+        },
+        {
+          provide: InputSanitizationService,
+          useValue: {
+            sanitizeMessageContent: jest.fn(),
+            isValidConversationId: jest.fn(),
+          },
+        },
+        {
+          provide: RateLimitingService,
+          useValue: {
+            isWithinLimit: jest.fn().mockReturnValue(true),
+            cleanup: jest.fn(),
+          },
+        },
+        {
+          provide: WebSocketMessageHandlerService,
+          useValue: {
+            validateMessageRequest: jest.fn(),
+            createFallbackMessage: jest.fn(),
+            sendMessageError: jest.fn(),
+            sendMessageConfirmation: jest.fn(),
           },
         },
       ],
@@ -48,6 +117,13 @@ describe('ChatGateway', () => {
 
     gateway = module.get<ChatGateway>(ChatGateway);
     jwtService = module.get<JwtService>(JwtService);
+    connectionService = module.get<WebSocketConnectionService>(WebSocketConnectionService);
+    broadcastService = module.get<WebSocketBroadcastService>(WebSocketBroadcastService);
+    accessService = module.get<ConversationAccessService>(ConversationAccessService);
+    errorService = module.get<WebSocketErrorService>(WebSocketErrorService);
+    sanitizationService = module.get<InputSanitizationService>(InputSanitizationService);
+    rateLimitingService = module.get<RateLimitingService>(RateLimitingService);
+    messageHandlerService = module.get<WebSocketMessageHandlerService>(WebSocketMessageHandlerService);
 
     // Set up the mock server
     gateway.server = mockServer as any;
@@ -66,30 +142,29 @@ describe('ChatGateway', () => {
       const mockPayload = { sub: 123, name: 'Test User' };
       mockSocket.handshake.auth.token = 'valid-token';
       
-      jest.spyOn(jwtService, 'verifyAsync').mockResolvedValue(mockPayload);
+      jest.spyOn(connectionService, 'authenticateSocket').mockResolvedValue(true);
+      mockSocket.userId = '123';
+      mockSocket.user = { id: '123', name: 'Test User' };
 
       await gateway.handleConnection(mockSocket as any);
 
-      expect(mockSocket.userId).toBe(123);
-      expect(mockSocket.user).toEqual({ id: 123, name: 'Test User' });
+      expect(connectionService.authenticateSocket).toHaveBeenCalledWith(mockSocket);
       expect(mockSocket.emit).toHaveBeenCalledWith('connected', {
         message: 'Successfully connected to chat',
-        userId: 123,
+        userId: '123',
       });
     });
 
-    it('should disconnect client with invalid token', async () => {
-      mockSocket.handshake.auth.token = 'invalid-token';
-      
-      jest.spyOn(jwtService, 'verifyAsync').mockRejectedValue(new Error('Invalid token'));
+    it('should disconnect client with invalid authentication', async () => {
+      jest.spyOn(connectionService, 'authenticateSocket').mockResolvedValue(false);
 
       await gateway.handleConnection(mockSocket as any);
 
       expect(mockSocket.disconnect).toHaveBeenCalled();
     });
 
-    it('should disconnect client with no token', async () => {
-      mockSocket.handshake = { headers: {}, query: {}, auth: {} };
+    it('should handle authentication errors gracefully', async () => {
+      jest.spyOn(connectionService, 'authenticateSocket').mockRejectedValue(new Error('Auth error'));
 
       await gateway.handleConnection(mockSocket as any);
 
@@ -104,13 +179,13 @@ describe('ChatGateway', () => {
     });
 
     it('should join conversation room', async () => {
-      const data = { conversation_id: 456 };
+      const data = { conversation_id: '456' };
 
       await gateway.handleJoinConversation(data, mockSocket as any);
 
       expect(mockSocket.join).toHaveBeenCalledWith('conversation_456');
       expect(mockSocket.emit).toHaveBeenCalledWith('joined_conversation', {
-        conversation_id: 456,
+        conversation_id: '456',
         message: 'Joined conversation 456',
       });
     });
@@ -123,13 +198,13 @@ describe('ChatGateway', () => {
     });
 
     it('should leave conversation room', async () => {
-      const data = { conversation_id: 456 };
+      const data = { conversation_id: '456' };
 
       await gateway.handleLeaveConversation(data, mockSocket as any);
 
       expect(mockSocket.leave).toHaveBeenCalledWith('conversation_456');
       expect(mockSocket.emit).toHaveBeenCalledWith('left_conversation', {
-        conversation_id: 456,
+        conversation_id: '456',
         message: 'Left conversation 456',
       });
     });
@@ -143,43 +218,69 @@ describe('ChatGateway', () => {
 
     it('should broadcast message to conversation', async () => {
       const data = {
-        conversation_id: 456,
+        conversation_id: '456',
         content: 'Hello world',
         message_type: 'text',
       };
 
+      jest.spyOn(messageHandlerService, 'validateMessageRequest').mockResolvedValue({
+        isValid: true,
+        sanitizedContent: 'Hello world',
+      });
+
+      jest.spyOn(messageHandlerService, 'createFallbackMessage').mockReturnValue({
+        message_id: 'test-id',
+        conversation_id: '456',
+        sender_id: '123',
+        sender_name: 'Test User',
+        content: 'Hello world',
+        message_type: 'text',
+        sent_at: '2023-01-01T00:00:00.000Z',
+      });
+
       await gateway.handleMessage(data, mockSocket as any);
 
       expect(mockServer.to).toHaveBeenCalledWith('conversation_456');
-      expect(mockSocket.emit).toHaveBeenCalledWith('message_sent', expect.objectContaining({
-        conversation_id: 456,
-      }));
+      expect(messageHandlerService.sendMessageConfirmation).toHaveBeenCalled();
     });
 
-    it('should reject empty message', async () => {
+    it('should reject invalid message', async () => {
       const data = {
-        conversation_id: 456,
+        conversation_id: '456',
         content: '',
       };
 
+      jest.spyOn(messageHandlerService, 'validateMessageRequest').mockResolvedValue({
+        isValid: false,
+        error: 'Message content cannot be empty',
+      });
+
       await gateway.handleMessage(data, mockSocket as any);
 
-      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
-        message: 'Message content cannot be empty',
-      });
+      expect(messageHandlerService.sendMessageError).toHaveBeenCalledWith(
+        mockSocket,
+        'Message content cannot be empty',
+        '456'
+      );
     });
 
-    it('should trim message content', async () => {
+    it('should handle validation errors', async () => {
       const data = {
-        conversation_id: 456,
-        content: '  Hello world  ',
+        conversation_id: '456',
+        content: 'Hello world',
       };
+
+      jest.spyOn(messageHandlerService, 'validateMessageRequest').mockRejectedValue(
+        new Error('Validation failed')
+      );
 
       await gateway.handleMessage(data, mockSocket as any);
 
-      expect(mockServer.to).toHaveBeenCalledWith('conversation_456');
-      // The message should be trimmed
-      expect(mockSocket.emit).toHaveBeenCalledWith('message_sent', expect.any(Object));
+      expect(errorService.handleError).toHaveBeenCalledWith(
+        mockSocket,
+        expect.any(Error),
+        'send_message'
+      );
     });
   });
 
@@ -190,7 +291,7 @@ describe('ChatGateway', () => {
     });
 
     it('should broadcast typing start', async () => {
-      const data = { conversation_id: 456 };
+      const data = { conversation_id: '456' };
 
       await gateway.handleTypingStart(data, mockSocket as any);
 
@@ -198,7 +299,7 @@ describe('ChatGateway', () => {
     });
 
     it('should broadcast typing stop', async () => {
-      const data = { conversation_id: 456 };
+      const data = { conversation_id: '456' };
 
       await gateway.handleTypingStop(data, mockSocket as any);
 
@@ -215,12 +316,12 @@ describe('ChatGateway', () => {
 
     it('should send message to user', async () => {
       // This would require setting up the internal user tracking
-      const result = await gateway.sendMessageToUser('123', 'test_event', { data: 'test' });
+      const result = await gateway.sendMessageToUser('123', 'error', { message: 'test' });
       expect(result).toBe(false); // User not connected
     });
 
     it('should send message to conversation', async () => {
-      await gateway.sendMessageToConversation('456', 'test_event', { data: 'test' });
+      await gateway.sendMessageToConversation('456', 'error', { message: 'test' });
       expect(mockServer.to).toHaveBeenCalledWith('conversation_456');
     });
   });

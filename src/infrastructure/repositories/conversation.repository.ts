@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Conversation } from '@domain/entities/conversation.entity';
+import { Participant } from '@domain/entities/participant.entity';
 import { ConversationType } from '@domain/value-objects/conversation-type.vo';
 import { IConversationRepository, IConversationQueryRepository, IConversationCommandRepository } from '@domain/repositories/conversation.repository.interface';
 import { StructuredLoggerService } from '@infrastructure/logging/structured-logger.service';
@@ -145,6 +146,8 @@ export class ConversationQueryRepository implements IConversationQueryRepository
   constructor(
     @InjectRepository(Conversation)
     private readonly repository: Repository<Conversation>,
+    @InjectRepository(Participant)
+    private readonly participantRepository: Repository<Participant>,
     private readonly logger: StructuredLoggerService,
   ) {}
 
@@ -230,14 +233,26 @@ export class ConversationQueryRepository implements IConversationQueryRepository
 
   async findDirectConversation(user1Id: string, user2Id: string): Promise<Conversation | null> {
     try {
-      const conversation = await this.repository
-        .createQueryBuilder('conversation')
-        .innerJoin('participants', 'p1', 'p1.conversation_id = conversation.id AND p1.user_id = :user1Id', { user1Id })
-        .innerJoin('participants', 'p2', 'p2.conversation_id = conversation.id AND p2.user_id = :user2Id', { user2Id })
-        .where('conversation.type = :type', { type: 'direct' })
-        .getOne();
+      // Use a simpler approach to find direct conversation
+      const conversations = await this.repository.find({
+        where: { type: { value: 'direct' } as any },
+      });
 
-      return conversation || null;
+      // Check each conversation to see if it has exactly these two participants
+      for (const conversation of conversations) {
+        const participants = await this.participantRepository.find({
+          where: { conversationId: conversation.id }
+        });
+        const participantIds = participants.map(p => p.userId);
+        
+        if (participantIds.length === 2 && 
+            participantIds.includes(user1Id) && 
+            participantIds.includes(user2Id)) {
+          return conversation;
+        }
+      }
+
+      return null;
     } catch (error) {
       this.logger.error('Failed to find direct conversation', error, {
         service: 'ConversationQueryRepository',

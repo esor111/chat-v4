@@ -2,16 +2,20 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { chatService } from '../services/chat.service';
 import type { Message, Conversation } from '../types/chat';
+import UserSearch from './UserSearch';
+import GroupCreation from './GroupCreation';
 
 const ChatInterface: React.FC = () => {
   const { user, logout } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<number | null>(null);
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showUserSearch, setShowUserSearch] = useState(false);
+  const [showGroupCreation, setShowGroupCreation] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -62,7 +66,7 @@ const ChatInterface: React.FC = () => {
     }
   };
 
-  const selectConversation = async (conversationId: number) => {
+  const selectConversation = async (conversationId: string) => {
     try {
       setSelectedConversation(conversationId);
       setMessages([]);
@@ -104,6 +108,18 @@ const ChatInterface: React.FC = () => {
         content: messageContent,
       });
       
+      // Also add the message to local state immediately for better UX
+      const tempMessage = {
+        message_id: Date.now(), // Temporary ID
+        conversation_id: selectedConversation,
+        sender_id: user?.id || '',
+        content: messageContent,
+        message_type: 'text',
+        sent_at: new Date().toISOString(),
+      };
+      
+      setMessages(prev => [...prev, tempMessage]);
+      
     } catch (error) {
       console.error('Failed to send message:', error);
       setError('Failed to send message');
@@ -127,6 +143,13 @@ const ChatInterface: React.FC = () => {
       hour: '2-digit', 
       minute: '2-digit' 
     });
+  };
+
+  const handleConversationCreated = async (conversationId: string) => {
+    // Refresh conversations list
+    await loadConversations();
+    // Select the new conversation
+    selectConversation(conversationId);
   };
 
   if (isLoading) {
@@ -164,7 +187,10 @@ const ChatInterface: React.FC = () => {
           <div>
             <div style={{ fontWeight: 'bold' }}>Chat</div>
             <div style={{ fontSize: '0.8rem', opacity: 0.8 }}>
-              {user?.kahaId || user?.id}
+              KahaID: {user?.kahaId || 'Unknown'}
+            </div>
+            <div style={{ fontSize: '0.7rem', opacity: 0.6 }}>
+              UserID: {user?.id}
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -189,11 +215,49 @@ const ChatInterface: React.FC = () => {
           </div>
         </div>
 
+        {/* Action Buttons */}
+        <div style={{ padding: '1rem', borderBottom: '1px solid #eee' }}>
+          <button
+            onClick={() => setShowUserSearch(true)}
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              backgroundColor: '#4caf50',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              marginBottom: '0.5rem',
+              fontSize: '0.9rem',
+            }}
+          >
+            + New Direct Message
+          </button>
+          <button
+            onClick={() => setShowGroupCreation(true)}
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              backgroundColor: '#ff9800',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+            }}
+          >
+            + Create Group
+          </button>
+        </div>
+
         {/* Conversations List */}
         <div style={{ flex: 1, overflow: 'auto' }}>
           {conversations.length === 0 ? (
             <div style={{ padding: '1rem', textAlign: 'center', color: '#666' }}>
               No conversations yet
+              <div style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>
+                Start a new conversation using the buttons above
+              </div>
             </div>
           ) : (
             conversations.map(conv => (
@@ -208,11 +272,18 @@ const ChatInterface: React.FC = () => {
                 }}
               >
                 <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
-                  Conversation {conv.conversation_id}
+                  {conv.type === 'direct' ? 'Direct Message' : 
+                   conv.type === 'group' ? 'Group Chat' : 
+                   conv.type === 'business' ? 'Business Chat' : 'Chat'}
                 </div>
                 <div style={{ fontSize: '0.8rem', color: '#666' }}>
                   {conv.type} • {formatTime(conv.last_activity)}
                 </div>
+                {conv.participants && conv.participants.length > 0 && (
+                  <div style={{ fontSize: '0.7rem', color: '#999', marginTop: '0.25rem' }}>
+                    {conv.participants.length} participant{conv.participants.length !== 1 ? 's' : ''}
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -357,6 +428,22 @@ const ChatInterface: React.FC = () => {
             ×
           </button>
         </div>
+      )}
+
+      {/* User Search Modal */}
+      {showUserSearch && (
+        <UserSearch
+          onConversationCreated={handleConversationCreated}
+          onClose={() => setShowUserSearch(false)}
+        />
+      )}
+
+      {/* Group Creation Modal */}
+      {showGroupCreation && (
+        <GroupCreation
+          onGroupCreated={handleConversationCreated}
+          onClose={() => setShowGroupCreation(false)}
+        />
       )}
     </div>
   );

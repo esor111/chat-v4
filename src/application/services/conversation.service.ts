@@ -1,232 +1,378 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Conversation } from '@domain/entities/conversation.entity';
-import { Participant } from '@domain/entities/participant.entity';
-import { User } from '@domain/entities/user.entity';
-import { ConversationType } from '@domain/value-objects/conversation-type.vo';
-import { ParticipantRole } from '@domain/value-objects/participant-role.vo';
-import { ConversationFactory } from '@domain/factories/conversation.factory';
-import { StructuredLoggerService } from '@infrastructure/logging/structured-logger.service';
+import {
+  Injectable,
+  Inject,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from "@nestjs/common";
+import { IConversationRepository } from "@domain/repositories/conversation.repository.interface";
+import { IParticipantRepository } from "@domain/repositories/participant.repository.interface";
+import { IMessageRepository } from "@domain/repositories/message.repository.interface";
+import { SimpleProfileCacheService } from "@infrastructure/profile/simple-profile-cache.service";
+
+export interface ConversationListItem {
+  conversation_id: string;
+  type: string;
+  last_activity: Date;
+  last_message_id?: string;
+  participants: Array<{
+    userId: string;
+    role: string;
+    name: string;
+    avatar_url?: string;
+    user_type: string;
+  }>;
+  unread_count: number;
+  is_muted: boolean;
+}
+
+export interface ConversationDetails {
+  conversation_id: string;
+  type: string;
+  created_at: Date;
+  last_activity: Date;
+  last_message_id?: string;
+  participants: Array<{
+    userId: string;
+    role: string;
+    name: string;
+    avatar_url?: string;
+    user_type: string;
+    is_muted: boolean;
+    last_read_message_id?: string;
+  }>;
+}
+
+export interface MessageWithSender {
+  message_id: string;
+  conversation_id: string;
+  sender_id: string;
+  sender_name: string;
+  sender_avatar?: string;
+  content: string;
+  message_type: string;
+  sent_at: Date;
+  is_deleted: boolean;
+}
 
 @Injectable()
 export class ConversationService {
   constructor(
-    @InjectRepository(Conversation)
-    private readonly conversationRepository: Repository<Conversation>,
-    @InjectRepository(Participant)
-    private readonly participantRepository: Repository<Participant>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-    private readonly logger: StructuredLoggerService,
+    @Inject("IConversationRepository")
+    private readonly conversationRepository: IConversationRepository,
+    @Inject("IParticipantRepository")
+    private readonly participantRepository: IParticipantRepository,
+    @Inject("IMessageRepository")
+    private readonly messageRepository: IMessageRepository,
+    private readonly profileService: SimpleProfileCacheService
   ) {}
 
-  async createConversation(params: {
-    type: string;
-    createdBy: string;
-    participants: Array<{ userId: string; role: string }>;
-    title?: string;
-    description?: string;
-  }): Promise<Conversation> {
-    this.logger.log('Creating conversation', {
-      service: 'ConversationService',
-      operation: 'createConversation',
-      type: params.type,
-      createdBy: params.createdBy,
-      participantCount: params.participants.length,
-    });
+  async getUserConversations(
+    userId: string,
+    limit: number = 20,
+    offset: number = 0
+  ): Promise<{ conversations: ConversationListItem[]; total: number }> {
+    const conversations = await this.conversationRepository.findByParticipant(userId, limit + offset, 0);
 
-    // Validate that all users exist
-    const userIds = params.participants.map(p => p.userId);
-    const users = await this.userRepository.findByIds(userIds);
-    if (users.length !== userIds.length) {
-      throw new Error('One or more participants do not exist');
-    }
+    const conversationsWithDetails = await this.enrichConversationsWithProfiles(conversations, userId);
 
-    // Use factory to create conversation with validation
-    const { conversation, participants } = ConversationFactory.create(params);
+    // Apply pagination and sorting
+    const paginatedConversations = conversationsWithDetails
+      .sort((a, b) => b.last_activity.getTime() - a.last_activity.getTime())
+      .slice(offset, offset + limit);
 
-    // Save conversation
-    const savedConversation = await this.conversationRepository.save(conversation);
-
-    // Save participants with the correct conversation ID
-    const participantsToSave = participants.map(p => {
-      p.conversationId = savedConversation.id;
-      return p;
-    });
-    await this.participantRepository.save(participantsToSave);
-
-    this.logger.audit('Conversation created', {
-      conversationId: savedConversation.id,
-      type: params.type,
-      createdBy: params.createdBy,
-    });
-
-    return savedConversation;
+    return {
+      conversations: paginatedConversations,
+      total: conversations.length,
+    };
   }
 
-  async addParticipant(
-    conversationId: string,
-    userId: string,
-    role: string,
-    addedBy: string,
-  ): Promise<void> {
-    this.logger.log('Adding participant to conversation', {
-      service: 'ConversationService',
-      operation: 'addParticipant',
-      conversationId,
-      userId,
-      role,
-      addedBy,
-    });
+  private async enrichConversationsWithProfiles(
+    conversations: any[],
+    currentUserId: string
+  ): Promise<ConversationListItem[]> {
+    const allParticipants = await this.fetchAllParticipants(conversations);
+    const profiles = await this.fetchProfilesForParticipants(allParticipants);
 
-    const conversation = await this.conversationRepository.findOne({
-      where: { id: conversationId },
-      relations: ['participants'],
-    });
+    return conversations.map((conversation, index) => 
+      this.buildConversationListItem(conversation, allParticipants[index], profiles, currentUserId)
+    );
+  }
 
-    if (!conversation) {
-      throw new Error('Conversation not found');
-    }
+  private async fetchAllParticipants(conversations: any[]): Promise<any[][]> {
+    return Promise.all(
+      conversations.map((conv) =>
+        this.participantRepository.findByConversation(conv.id)
+      )
+    );
+  }
 
-    // Validate user exists
-    const user = await this.userRepository.findOne({ where: { userId: userId } });
-    if (!user) {
-      throw new Error('User not found');
-    }
+  private async fetchProfilesForParticipants(allParticipants: any[][]): Promise<any> {
+    const userIds = new Set<string>();
+    allParticipants.flat().forEach((p) => userIds.add(p.userId));
 
-    // Business rule validations
-    this.validateAddParticipant(conversation, userId, role);
-
-    // Create and save participant
-    const participant = new Participant();
-    participant.conversationId = conversationId;
-    participant.userId = userId;
-    participant.role = ParticipantRole.fromString(role);
-    participant.isMuted = false;
-
-    await this.participantRepository.save(participant);
-
-    // Update conversation last activity
-    conversation.lastActivity = new Date();
-    await this.conversationRepository.save(conversation);
-
-    this.logger.audit('Participant added to conversation', {
-      conversationId,
-      userId,
-      role,
-      addedBy,
+    return this.profileService.getBatchProfiles({
+      user_ids: Array.from(userIds),
     });
   }
 
-  async removeParticipant(
+  private buildConversationListItem(
+    conversation: any,
+    participants: any[],
+    profiles: any,
+    currentUserId: string
+  ): ConversationListItem {
+    const otherParticipants = participants.filter((p) => p.userId !== currentUserId);
+    const participantProfiles = this.mapParticipantProfiles(otherParticipants, profiles);
+    const userParticipant = participants.find((p) => p.userId === currentUserId);
+
+    return {
+      conversation_id: conversation.id,
+      type: conversation.type.value,
+      last_activity: conversation.lastActivity,
+      last_message_id: conversation.lastMessageId,
+      participants: participantProfiles,
+      unread_count: 0, // TODO: Calculate unread count
+      is_muted: userParticipant?.isMuted || false,
+    };
+  }
+
+  private mapParticipantProfiles(participants: any[], profiles: any): any[] {
+    return participants.map((p) => {
+      const profile = this.findProfileById(p.userId, profiles);
+      return {
+        userId: p.userId,
+        role: p.role.value,
+        name: profile?.name || "Unknown User",
+        avatar_url: profile?.avatar_url,
+        user_type: profile?.user_type || "user",
+      };
+    });
+  }
+
+  private findProfileById(userId: string, profiles: any): any {
+    return profiles.users.find((u: any) => u.id === userId) ||
+           profiles.businesses.find((b: any) => b.id === userId);
+  }
+
+  async getConversationDetails(
     conversationId: string,
-    userId: string,
-    removedBy: string,
-    reason?: string,
-  ): Promise<void> {
-    this.logger.log('Removing participant from conversation', {
-      service: 'ConversationService',
-      operation: 'removeParticipant',
-      conversationId,
-      userId,
-      removedBy,
-      reason,
-    });
+    userId: string
+  ): Promise<ConversationDetails> {
+    await this.validateUserAccess(conversationId, userId);
 
-    const conversation = await this.conversationRepository.findOne({
-      where: { id: conversationId },
-      relations: ['participants'],
-    });
-
+    const conversation = await this.conversationRepository.findById(
+      conversationId
+    );
     if (!conversation) {
-      throw new Error('Conversation not found');
+      throw new NotFoundException("Conversation not found");
     }
 
-    const participant = conversation.participants.find(p => p.userId === userId);
+    const participants = await this.participantRepository.findByConversation(
+      conversationId
+    );
+    const userIds = participants.map((p) => p.userId);
+
+    const profiles = await this.profileService.getBatchProfiles({
+      user_ids: userIds,
+    });
+
+    const participantDetails = participants.map((p) => {
+      const profile =
+        profiles.users.find((u) => u.id === p.userId) ||
+        profiles.businesses.find((b) => b.id === p.userId);
+      return {
+        userId: p.userId,
+        role: p.role.value,
+        name: profile?.name || "Unknown User",
+        avatar_url: profile?.avatar_url,
+        user_type: profile?.user_type || "user",
+        is_muted: p.isMuted,
+        last_read_message_id: p.lastReadMessageId,
+      };
+    });
+
+    return {
+      conversation_id: conversation.id,
+      type: conversation.type.value,
+      created_at: conversation.createdAt,
+      last_activity: conversation.lastActivity,
+      last_message_id: conversation.lastMessageId,
+      participants: participantDetails,
+    };
+  }
+
+  async getConversationMessages(
+    conversationId: string,
+    userId: string,
+    limit: number = 50,
+    beforeId?: string
+  ): Promise<{ messages: MessageWithSender[]; has_more: boolean }> {
+    await this.validateUserAccess(conversationId, userId);
+
+    const messages = await this.messageRepository.findByConversation(
+      conversationId,
+      limit,
+      beforeId
+    );
+
+    const senderIds = [...new Set(messages.map((m) => m.senderId))];
+    const profiles = await this.profileService.getBatchProfiles({
+      user_ids: senderIds,
+    });
+
+    const messagesWithSenders = messages.map((message) => {
+      const senderProfile =
+        profiles.users.find((u) => u.id === message.senderId) ||
+        profiles.businesses.find((b) => b.id === message.senderId);
+
+      return {
+        message_id: message.id,
+        conversation_id: message.conversationId,
+        sender_id: message.senderId,
+        sender_name: senderProfile?.name || "Unknown User",
+        sender_avatar: senderProfile?.avatar_url,
+        content: message.content.content,
+        message_type: message.type.value,
+        sent_at: message.sentAt,
+        is_deleted: !!message.deletedAt,
+      };
+    });
+
+    return {
+      messages: messagesWithSenders,
+      has_more: messages.length === limit,
+    };
+  }
+
+  async createDirectConversation(
+    userId: string,
+    targetUserId: string
+  ): Promise<{ conversation_id: string }> {
+    this.validateDirectConversationRequest(userId, targetUserId);
+
+    await this.validateTargetUserExists(targetUserId);
+
+    // Check if direct conversation already exists
+    // TODO: Implement findDirectConversation method
+
+    const conversation = await this.conversationRepository.save({
+      type: { value: "direct" },
+      createdAt: new Date(),
+      lastActivity: new Date(),
+    } as any);
+
+    await this.addDirectConversationParticipants(conversation.id, userId, targetUserId);
+
+    return { conversation_id: conversation.id };
+  }
+
+  private validateDirectConversationRequest(userId: string, targetUserId: string): void {
+    if (userId === targetUserId) {
+      throw new BadRequestException("Cannot create conversation with yourself");
+    }
+  }
+
+  private async validateTargetUserExists(targetUserId: string): Promise<void> {
+    const targetProfile = await this.profileService.getUserProfile(targetUserId);
+    if (!targetProfile) {
+      throw new NotFoundException("Target user not found");
+    }
+  }
+
+  private async addDirectConversationParticipants(
+    conversationId: string,
+    userId: string,
+    targetUserId: string
+  ): Promise<void> {
+    await Promise.all([
+      this.participantRepository.save({
+        conversationId,
+        userId,
+        role: { value: "member" },
+        isMuted: false,
+      } as any),
+      this.participantRepository.save({
+        conversationId,
+        userId: targetUserId,
+        role: { value: "member" },
+        isMuted: false,
+      } as any),
+    ]);
+  }
+
+  async createGroupConversation(
+    userId: string,
+    participants: string[]
+  ): Promise<{ conversation_id: string }> {
+    if (participants.length === 0) {
+      throw new BadRequestException("At least one participant is required");
+    }
+
+    if (participants.length > 7) {
+      throw new BadRequestException(
+        "Maximum 7 participants allowed (8 total including creator)"
+      );
+    }
+
+    // Validate all participants exist
+    const profiles = await this.profileService.getBatchProfiles({
+      user_ids: participants,
+    });
+
+    const existingUserIds = new Set([
+      ...profiles.users.map((u) => u.id),
+      ...profiles.businesses.map((b) => b.id),
+    ]);
+
+    const missingUsers = participants.filter((id) => !existingUserIds.has(id));
+    if (missingUsers.length > 0) {
+      throw new BadRequestException(
+        `Users not found: ${missingUsers.join(", ")}`
+      );
+    }
+
+    const conversation = await this.conversationRepository.save({
+      type: { value: "group" },
+      createdAt: new Date(),
+      lastActivity: new Date(),
+    } as any);
+
+    // Add creator as admin
+    await this.participantRepository.save({
+      conversationId: conversation.id,
+      userId: userId,
+      role: { value: "admin" },
+      isMuted: false,
+    } as any);
+
+    // Add other participants as members
+    await Promise.all(
+      participants.map((participantId) =>
+        this.participantRepository.save({
+          conversationId: conversation.id,
+          userId: participantId,
+          role: { value: "member" },
+          isMuted: false,
+        } as any)
+      )
+    );
+
+    return { conversation_id: conversation.id };
+  }
+
+  private async validateUserAccess(
+    conversationId: string,
+    userId: string
+  ): Promise<void> {
+    const participant =
+      await this.participantRepository.findByConversationAndUser(
+        conversationId,
+        userId
+      );
+
     if (!participant) {
-      throw new Error('User is not a participant in this conversation');
-    }
-
-    // Business rule: Cannot remove the last participant
-    if (conversation.participants.length === 1) {
-      throw new Error('Cannot remove the last participant from a conversation');
-    }
-
-    await this.participantRepository.remove(participant);
-
-    // Update conversation last activity
-    conversation.lastActivity = new Date();
-    await this.conversationRepository.save(conversation);
-
-    this.logger.audit('Participant removed from conversation', {
-      conversationId,
-      userId,
-      removedBy,
-      reason,
-    });
-  }
-
-  async getConversation(conversationId: string, userId: string): Promise<Conversation | null> {
-    const conversation = await this.conversationRepository.findOne({
-      where: { id: conversationId },
-      relations: ['participants', 'messages'],
-    });
-
-    if (!conversation) {
-      return null;
-    }
-
-    // Check if user is a participant
-    const isParticipant = conversation.participants.some(p => p.userId === userId);
-    if (!isParticipant) {
-      throw new Error('User is not authorized to access this conversation');
-    }
-
-    return conversation;
-  }
-
-  async getUserConversations(userId: string): Promise<Conversation[]> {
-    const conversations = await this.conversationRepository
-      .createQueryBuilder('conversation')
-      .innerJoin('conversation.participants', 'participant')
-      .where('participant.userId = :userId', { userId })
-      .orderBy('conversation.lastActivity', 'DESC')
-      .getMany();
-
-    return conversations;
-  }
-
-  private validateAddParticipant(conversation: Conversation, userId: string, role: string): void {
-    // Check if user is already a participant
-    const existingParticipant = conversation.participants.find(p => p.userId === userId);
-    if (existingParticipant) {
-      throw new Error('User is already a participant in this conversation');
-    }
-
-    // Validate participant limits based on conversation type
-    const conversationType = conversation.type;
-    
-    if (conversationType.isDirect() && conversation.participants.length >= 2) {
-      throw new Error('Direct conversations can only have 2 participants');
-    }
-
-    if (conversationType.isGroup() && conversation.participants.length >= 8) {
-      throw new Error('Group conversations cannot have more than 8 participants');
-    }
-
-    // Validate role for conversation type
-    const participantRole = ParticipantRole.fromString(role);
-    
-    if (conversationType.isDirect() && !participantRole.isMember()) {
-      throw new Error('Direct conversations can only have member participants');
-    }
-
-    if (conversationType.isBusiness()) {
-      const validBusinessRoles = ['customer', 'agent', 'business'];
-      if (!validBusinessRoles.includes(participantRole.value)) {
-        throw new Error('Business conversations require customer, agent, or business roles');
-      }
+      throw new ForbiddenException("Access denied to this conversation");
     }
   }
 }

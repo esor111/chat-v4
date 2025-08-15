@@ -5,20 +5,14 @@ import {
   OneToMany,
   ManyToOne,
   JoinColumn,
-  PrimaryColumn,
-  CreateDateColumn,
 } from "typeorm";
+import { BaseEntity } from "./base.entity";
 import { Participant } from "./participant.entity";
 import { Message } from "./message.entity";
 import { ConversationType } from "@domain/value-objects/conversation-type.vo";
 
 @Entity("conversations")
-export class Conversation {
-  @PrimaryColumn({ name: "conversation_id", type: "integer" })
-  id: string;
-
-  @CreateDateColumn({ name: "created_at" })
-  createdAt: Date;
+export class Conversation extends BaseEntity {
   @Column({
     type: "varchar",
     length: 10,
@@ -32,7 +26,7 @@ export class Conversation {
   @UpdateDateColumn({ name: "last_activity" })
   lastActivity: Date;
 
-  @Column({ name: "last_message_id", nullable: true, type: "integer" })
+  @Column({ name: "last_message_id", nullable: true, type: "uuid" })
   lastMessageId?: string;
 
   @OneToMany(() => Participant, (participant) => participant.conversation, {

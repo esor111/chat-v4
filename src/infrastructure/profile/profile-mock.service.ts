@@ -33,21 +33,21 @@ export class ProfileMockService {
   }
 
   private initializeMockData(): void {
-    // Mock user profiles
+    // Mock user profiles - using actual user IDs from your auth microservice
     const mockUsers: UserProfile[] = [
       {
-        id: "550e8400-e29b-41d4-a716-446655440001",
-        name: "Ishwor Thapa",
+        id: "afc70db3-6f43-4882-92fd-4715f25ffc95",
+        name: "Ishwor Gautam",
         avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=ishwor",
         user_type: "user",
         is_online: true,
       },
       {
-        id: "550e8400-e29b-41d4-a716-446655440002",
-        name: "John Doe",
-        avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=john",
+        id: "c5c3d135-4968-450b-9fca-57f01e0055f7",
+        name: "Bhuwan Hamal",
+        avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=bhuwan",
         user_type: "user",
-        is_online: false,
+        is_online: true,
       },
       {
         id: "550e8400-e29b-41d4-a716-446655440003",
@@ -142,18 +142,32 @@ export class ProfileMockService {
    * Get a single user profile by ID
    */
   async getUserProfile(userId: string): Promise<UserProfile | null> {
-    const key = `user:${userId}`;
-    const profile = this.profileCache.get(key) as UserProfile;
+    try {
+      if (!this.isValidUserId(userId)) {
+        this.logger.warn(`Invalid user ID provided: ${userId}`);
+        return null;
+      }
 
-    if (profile) {
-      this.logger.debug(
-        `Retrieved user profile for user ${userId}: ${profile.name}`
-      );
-      return { ...profile }; // Return a copy
+      const key = `user:${userId}`;
+      const profile = this.profileCache.get(key) as UserProfile;
+
+      if (profile) {
+        this.logger.debug(
+          `Retrieved user profile for user ${userId}: ${profile.name}`
+        );
+        return { ...profile }; // Return a copy
+      }
+
+      this.logger.debug(`User profile not found for user ${userId}`);
+      return null;
+    } catch (error) {
+      this.logger.error(`Error retrieving user profile for ${userId}:`, error);
+      return null;
     }
+  }
 
-    this.logger.warn(`User profile not found for user ${userId}`);
-    return null;
+  private isValidUserId(userId: string): boolean {
+    return userId && typeof userId === 'string' && userId.trim().length > 0;
   }
 
   /**

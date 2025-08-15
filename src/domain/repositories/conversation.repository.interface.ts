@@ -4,7 +4,7 @@ import { ConversationType } from '@domain/value-objects/conversation-type.vo';
 export interface IConversationRepository {
   findById(conversationId: string): Promise<Conversation | null>;
   findByIds(conversationIds: string[], options?: { limit?: number; offset?: number }): Promise<Conversation[]>;
-  findByParticipant(userId: string): Promise<Conversation[]>;
+  findByParticipant(userId: string, limit?: number, offset?: number): Promise<Conversation[]>;
   save(conversation: Conversation): Promise<Conversation>;
   delete(conversationId: string): Promise<void>;
   updateLastActivity(conversationId: string, lastMessageId?: string): Promise<void>;

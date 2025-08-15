@@ -1,5 +1,5 @@
 export interface UserProfileData {
-  userId: number;
+  userId: string; // Changed to string to match infrastructure layer
   name: string;
   email?: string;
   avatar?: string;
@@ -9,44 +9,70 @@ export interface UserProfileData {
 
 export class UserProfile {
   private constructor(
-    public readonly userId: number,
+    public readonly userId: string,
     public readonly name: string,
     public readonly email?: string,
     public readonly avatar?: string,
     public readonly status?: string,
-    public readonly lastSeen?: Date,
+    public readonly lastSeen?: Date
   ) {}
 
   static create(data: UserProfileData): UserProfile {
-    if (!data.userId || data.userId <= 0) {
-      throw new Error('User ID must be a positive number');
-    }
-
-    if (!data.name || data.name.trim().length === 0) {
-      throw new Error('User name is required');
-    }
-
-    if (data.name.trim().length > 100) {
-      throw new Error('User name cannot exceed 100 characters');
-    }
-
-    if (data.email && !UserProfile.isValidEmail(data.email)) {
-      throw new Error('Invalid email format');
-    }
+    UserProfile.validateUserData(data);
 
     return new UserProfile(
-      data.userId,
+      data.userId.trim(),
       data.name.trim(),
       data.email?.trim(),
       data.avatar?.trim(),
       data.status?.trim(),
-      data.lastSeen,
+      data.lastSeen
     );
+  }
+
+  private static validateUserData(data: UserProfileData): void {
+    if (!data.userId || data.userId.trim().length === 0) {
+      throw new Error("User ID is required and cannot be empty");
+    }
+
+    if (!data.name || data.name.trim().length === 0) {
+      throw new Error("User name is required");
+    }
+
+    if (data.name.trim().length > 100) {
+      throw new Error("User name cannot exceed 100 characters");
+    }
+
+    if (data.email && !UserProfile.isValidEmail(data.email)) {
+      throw new Error("Invalid email format");
+    }
+
+    if (data.avatar && !UserProfile.isValidUrl(data.avatar)) {
+      throw new Error("Invalid avatar URL format");
+    }
+
+    if (data.status && !UserProfile.isValidStatus(data.status)) {
+      throw new Error("Invalid status value");
+    }
   }
 
   private static isValidEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
+  }
+
+  private static isValidUrl(url: string): boolean {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private static isValidStatus(status: string): boolean {
+    const validStatuses = ['online', 'offline', 'away', 'busy'];
+    return validStatuses.includes(status.toLowerCase());
   }
 
   equals(other: UserProfile): boolean {
@@ -64,7 +90,7 @@ export class UserProfile {
   }
 
   isOnline(): boolean {
-    return this.status === 'online';
+    return this.status === "online";
   }
 
   hasAvatar(): boolean {

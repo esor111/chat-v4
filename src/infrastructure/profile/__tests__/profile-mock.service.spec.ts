@@ -18,7 +18,7 @@ describe('ProfileMockService', () => {
 
   describe('user profiles', () => {
     it('should return a user profile by ID', async () => {
-      const userId = '1';
+      const userId = 'afc70db3-6f43-4882-92fd-4715f25ffc95';
       const profile = await service.getUserProfile(userId);
 
       expect(profile).toBeDefined();
@@ -33,7 +33,7 @@ describe('ProfileMockService', () => {
     });
 
     it('should return multiple user profiles', async () => {
-      const userIds = ['1', '2', '3'];
+      const userIds = ['afc70db3-6f43-4882-92fd-4715f25ffc95', 'c5c3d135-4968-450b-9fca-57f01e0055f7', '550e8400-e29b-41d4-a716-446655440003'];
       const profiles = await service.getUserProfiles(userIds);
 
       expect(profiles).toHaveLength(3);
@@ -44,22 +44,22 @@ describe('ProfileMockService', () => {
     });
 
     it('should handle partial results for user profiles', async () => {
-      const userIds = ['1', '999', '2']; // 999 doesn't exist
+      const userIds = ['afc70db3-6f43-4882-92fd-4715f25ffc95', '999', 'c5c3d135-4968-450b-9fca-57f01e0055f7']; // 999 doesn't exist
       const profiles = await service.getUserProfiles(userIds);
 
       expect(profiles).toHaveLength(2);
-      expect(profiles.map(p => p.id)).toEqual(['1', '2']);
+      expect(profiles.map(p => p.id)).toEqual(['afc70db3-6f43-4882-92fd-4715f25ffc95', 'c5c3d135-4968-450b-9fca-57f01e0055f7']);
     });
 
     it('should check if user exists', () => {
-      expect(service.userExists('1')).toBe(true);
+      expect(service.userExists('afc70db3-6f43-4882-92fd-4715f25ffc95')).toBe(true);
       expect(service.userExists('999')).toBe(false);
     });
   });
 
   describe('business profiles', () => {
     it('should return a business profile by ID', async () => {
-      const businessId = '100';
+      const businessId = '650e8400-e29b-41d4-a716-446655440100';
       const profile = await service.getBusinessProfile(businessId);
 
       expect(profile).toBeDefined();
@@ -76,7 +76,7 @@ describe('ProfileMockService', () => {
     });
 
     it('should return multiple business profiles', async () => {
-      const businessIds = ['100', '101'];
+      const businessIds = ['650e8400-e29b-41d4-a716-446655440100', '650e8400-e29b-41d4-a716-446655440101'];
       const profiles = await service.getBusinessProfiles(businessIds);
 
       expect(profiles).toHaveLength(2);
@@ -87,7 +87,7 @@ describe('ProfileMockService', () => {
     });
 
     it('should check if business exists', () => {
-      expect(service.businessExists('100')).toBe(true);
+      expect(service.businessExists('650e8400-e29b-41d4-a716-446655440100')).toBe(true);
       expect(service.businessExists('999')).toBe(false);
     });
   });
@@ -95,8 +95,8 @@ describe('ProfileMockService', () => {
   describe('batch operations', () => {
     it('should return batch profiles', async () => {
       const request = {
-        user_ids: ['1', '2'],
-        business_ids: ['100', '101'],
+        user_ids: ['afc70db3-6f43-4882-92fd-4715f25ffc95', 'c5c3d135-4968-450b-9fca-57f01e0055f7'],
+        business_ids: ['650e8400-e29b-41d4-a716-446655440100', '650e8400-e29b-41d4-a716-446655440101'],
       };
 
       const result = await service.getBatchProfiles(request);
@@ -116,8 +116,8 @@ describe('ProfileMockService', () => {
 
     it('should handle partial batch results', async () => {
       const request = {
-        user_ids: ['1', '999'], // 999 doesn't exist
-        business_ids: ['100', '999'], // 999 doesn't exist
+        user_ids: ['afc70db3-6f43-4882-92fd-4715f25ffc95', '999'], // 999 doesn't exist
+        business_ids: ['650e8400-e29b-41d4-a716-446655440100', '999'], // 999 doesn't exist
       };
 
       const result = await service.getBatchProfiles(request);
@@ -131,13 +131,13 @@ describe('ProfileMockService', () => {
     it('should return available user IDs', () => {
       const userIds = service.getAvailableUserIds();
       expect(userIds.length).toBeGreaterThan(0);
-      expect(userIds).toEqual(expect.arrayContaining(['1', '2', '3', '4', '5']));
+      expect(userIds).toEqual(expect.arrayContaining(['afc70db3-6f43-4882-92fd-4715f25ffc95', 'c5c3d135-4968-450b-9fca-57f01e0055f7', '550e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440005']));
     });
 
     it('should return available business IDs', () => {
       const businessIds = service.getAvailableBusinessIds();
       expect(businessIds.length).toBeGreaterThan(0);
-      expect(businessIds).toEqual(expect.arrayContaining(['100', '101', '102', '103']));
+      expect(businessIds).toEqual(expect.arrayContaining(['650e8400-e29b-41d4-a716-446655440100', '650e8400-e29b-41d4-a716-446655440101', '650e8400-e29b-41d4-a716-446655440102', '650e8400-e29b-41d4-a716-446655440103']));
     });
 
     it('should return profile statistics', () => {

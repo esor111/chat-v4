@@ -31,21 +31,17 @@ export class MessageRepository implements IMessageRepository {
 
   async findByConversation(conversationId: string, limit?: number, beforeMessageId?: string): Promise<Message[]> {
     try {
-      let query = this.repository
-        .createQueryBuilder('message')
-        .where('message.conversationId = :conversationId', { conversationId })
-        .andWhere('message.deletedAt IS NULL')
-        .orderBy('message.sentAt', 'DESC');
+      // Use simple find method to avoid query builder column name issues
+      const messages = await this.repository.find({
+        where: {
+          conversationId: conversationId,
+          deletedAt: null as any,
+        },
+        order: { sentAt: 'DESC' },
+        take: limit || 50,
+      });
 
-      if (beforeMessageId) {
-        query = query.andWhere('message.id < :beforeMessageId', { beforeMessageId });
-      }
-
-      if (limit) {
-        query = query.limit(limit);
-      }
-
-      return await query.getMany();
+      return messages;
     } catch (error) {
       this.logger.error('Failed to find messages by conversation', error, {
         service: 'MessageRepository',

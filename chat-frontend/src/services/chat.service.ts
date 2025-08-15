@@ -72,14 +72,14 @@ class ChatService {
   }
 
   // Join conversation room
-  joinConversation(conversationId: number): void {
+  joinConversation(conversationId: string): void {
     if (this.socket) {
       this.socket.emit('join_conversation', { conversation_id: conversationId });
     }
   }
 
   // Leave conversation room
-  leaveConversation(conversationId: number): void {
+  leaveConversation(conversationId: string): void {
     if (this.socket) {
       this.socket.emit('leave_conversation', { conversation_id: conversationId });
     }
@@ -97,13 +97,13 @@ class ChatService {
   }
 
   // Typing indicators
-  startTyping(conversationId: number): void {
+  startTyping(conversationId: string): void {
     if (this.socket) {
       this.socket.emit('typing_start', { conversation_id: conversationId });
     }
   }
 
-  stopTyping(conversationId: number): void {
+  stopTyping(conversationId: string): void {
     if (this.socket) {
       this.socket.emit('typing_stop', { conversation_id: conversationId });
     }
@@ -130,10 +130,10 @@ class ChatService {
         Authorization: `Bearer ${token}`,
       },
     });
-    return response.data;
+    return response.data?.conversations ?? [];
   }
 
-  async getConversationMessages(conversationId: number, limit = 50): Promise<Message[]> {
+  async getConversationMessages(conversationId: string, limit = 50): Promise<Message[]> {
     const token = authService.getToken();
     const response = await axios.get(
       `${API_BASE}/conversations/${conversationId}/messages?limit=${limit}`,
@@ -143,7 +143,7 @@ class ChatService {
         },
       }
     );
-    return response.data;
+    return response.data?.messages ?? [];
   }
 
   async sendMessageRest(data: SendMessageRequest): Promise<Message> {
@@ -164,7 +164,7 @@ class ChatService {
     return response.data;
   }
 
-  async markAsRead(conversationId: number, messageId: number): Promise<void> {
+  async markAsRead(conversationId: string, messageId: string): Promise<void> {
     const token = authService.getToken();
     await axios.post(
       `${API_BASE}/conversations/${conversationId}/read`,
@@ -176,6 +176,52 @@ class ChatService {
         },
       }
     );
+  }
+
+  // Create direct conversation with another user
+  async createDirectConversation(targetUserId: string): Promise<{ conversation_id: string }> {
+    const token = authService.getToken();
+    const response = await axios.post(
+      `${API_BASE}/conversations/direct`,
+      { target_user_id: targetUserId },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    return response.data;
+  }
+
+  // Create group conversation
+  async createGroupConversation(data: { name: string; participants: string[] }): Promise<{ conversation_id: string }> {
+    const token = authService.getToken();
+    const response = await axios.post(
+      `${API_BASE}/conversations/group`,
+      {
+        name: data.name,
+        participants: data.participants,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    return response.data;
+  }
+
+  // List users (userIds) for starting a direct conversation
+  async listUsers(): Promise<Array<{id: string, name: string, avatar_url?: string, user_type: string, is_online?: boolean}>> {
+    const token = authService.getToken();
+    const response = await axios.get(`${API_BASE}/users`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data?.users ?? [];
   }
 }
 

@@ -5,10 +5,10 @@ import { ParticipantRole } from "@domain/value-objects/participant-role.vo";
 
 @Entity("participants")
 export class Participant {
-  @PrimaryColumn({ name: "conversation_id", type: "integer" })
+  @PrimaryColumn({ name: "conversation_id", type: "uuid" })
   conversationId: string;
 
-  @PrimaryColumn({ name: "user_id", type: "varchar", length: 255 })
+  @PrimaryColumn({ name: "user_id", type: "varchar" })
   userId: string;
 
   @Column({
@@ -21,7 +21,7 @@ export class Participant {
   })
   role: ParticipantRole;
 
-  @Column({ name: "last_read_message_id", nullable: true, type: "integer" })
+  @Column({ name: "last_read_message_id", nullable: true, type: "uuid" })
   lastReadMessageId?: string;
 
   @Column({ name: "is_muted", default: false })

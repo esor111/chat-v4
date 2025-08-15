@@ -145,9 +145,12 @@ export class UserQueryRepository implements IUserQueryRepository {
 
   async findActiveUsers(userIds: string[]): Promise<User[]> {
     try {
-      if (userIds.length === 0) return [];
+      if (userIds.length === 0) {
+        // Return all users when no specific IDs are provided
+        return await this.repository.find();
+      }
       // In a real implementation, you might have an 'active' status field
-      // For now, we'll just return all users
+      // For now, we'll just return users by provided IDs
       return await this.repository.find({ where: { userId: In(userIds) } });
     } catch (error) {
       this.logger.error('Failed to find active users', error, {

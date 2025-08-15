@@ -184,6 +184,12 @@ export class WebSocketMessageService {
         return { allowed: false, reason: 'User is not a participant in this conversation' };
       }
 
+      // Check if participant is active (assuming we have an isActive field or similar)
+      // Note: Adjust this based on your actual Participant entity structure
+      // if (participant.leftAt) {
+      //   return { allowed: false, reason: 'User has left this conversation' };
+      // }
+
       return { allowed: true };
     } catch (error) {
       this.logger.error(`Error checking user permissions:`, error);
@@ -213,13 +219,28 @@ export class WebSocketMessageService {
    */
   private async broadcastMessage(message: Message): Promise<void> {
     try {
+      // Get sender profile information
+      let senderName = 'Unknown User';
+      let senderAvatar = undefined;
+      
+      try {
+        // Try to get profile from profile service if available
+        // This would need to be injected if we want profile info in real-time messages
+        // For now, we'll use a basic approach
+      } catch (profileError) {
+        this.logger.warn(`Could not fetch sender profile for ${message.senderId}:`, profileError);
+      }
+
       const messageData = {
         message_id: message.id,
         conversation_id: message.conversationId,
         sender_id: message.senderId,
+        sender_name: senderName,
+        sender_avatar: senderAvatar,
         content: message.content.content,
         message_type: message.type.value,
         sent_at: message.sentAt.toISOString(),
+        is_deleted: false,
       };
 
       // Send to conversation room
@@ -246,10 +267,14 @@ export class WebSocketMessageService {
       
       for (const participant of participants) {
         // Get unread messages since last read
-        const lastReadMessageId = participant.lastReadMessageId || '0';
+        // Skip if no last read message ID (user hasn't read any messages yet)
+        if (!participant.lastReadMessageId) {
+          continue;
+        }
+        
         const messages = await this.messageRepository.findUnreadMessages(
           participant.conversationId,
-          lastReadMessageId
+          participant.lastReadMessageId
         );
 
         // Send each message to the user
@@ -265,7 +290,7 @@ export class WebSocketMessageService {
 
           const delivered = await this.chatGateway.sendMessageToUser(
             userId,
-            'offline_message',
+            'new_message',
             messageData
           );
 

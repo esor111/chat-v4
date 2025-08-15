@@ -1,6 +1,6 @@
 export interface Message {
-  message_id: number;
-  conversation_id: number;
+  message_id: string | number;
+  conversation_id: string;
   sender_id: string;
   sender_name?: string;
   content: string;
@@ -9,7 +9,7 @@ export interface Message {
 }
 
 export interface Conversation {
-  conversation_id: number;
+  conversation_id: string;
   type: 'direct' | 'group' | 'business';
   created_at: string;
   last_activity: string;
@@ -26,13 +26,13 @@ export interface Participant {
 }
 
 export interface SendMessageRequest {
-  conversation_id: number;
+  conversation_id: string;
   content: string;
   message_type?: string;
 }
 
 export interface TypingIndicator {
-  conversation_id: number;
+  conversation_id: string;
   user_id: string;
   user_name?: string;
   is_typing: boolean;

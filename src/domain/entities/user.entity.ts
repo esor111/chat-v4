@@ -1,10 +1,8 @@
-import { Entity, PrimaryColumn, CreateDateColumn } from "typeorm";
+import { Entity, Column } from "typeorm";
+import { BaseEntity } from "./base.entity";
 
 @Entity("users")
-export class User {
-  @PrimaryColumn({ name: "user_id", type: "varchar", length: 255 })
+export class User extends BaseEntity {
+  @Column({ name: "user_id", type: "varchar", length: 255, unique: true })
   userId: string;
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
 }

@@ -1,6 +1,5 @@
-import { CanActivate, ExecutionContext, Injectable, Logger } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { WsException } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
 
 interface AuthenticatedSocket extends Socket {
@@ -21,24 +20,26 @@ export class WsJwtGuard implements CanActivate {
     try {
       const client: AuthenticatedSocket = context.switchToWs().getClient();
       
-      // Check if user is already authenticated (from connection)
+      // If socket is already authenticated, allow
       if (client.userId) {
         return true;
       }
 
-      // If not authenticated during connection, try to authenticate now
-      const token = this.extractToken(client);
+      // Extract and verify token
+      const token = this.extractTokenFromClient(client);
       if (!token) {
-        throw new WsException('No authentication token provided');
+        this.logger.warn(`No token provided for socket ${client.id}`);
+        return false;
       }
 
       const payload = await this.verifyToken(token);
       if (!payload) {
-        throw new WsException('Invalid authentication token');
+        this.logger.warn(`Invalid token for socket ${client.id}`);
+        return false;
       }
 
-      // Attach user info to socket (handle both id and userId fields)
-      const userId = payload.userId || payload.id;
+      // Attach user info to socket
+      const userId = payload.userId || payload.id || payload.sub;
       client.userId = userId;
       client.user = {
         id: userId,
@@ -47,25 +48,22 @@ export class WsJwtGuard implements CanActivate {
 
       return true;
     } catch (error) {
-      this.logger.warn(`WebSocket authentication failed:`, error.message);
-      throw new WsException('Authentication failed');
+      this.logger.error('WebSocket authentication error:', error);
+      return false;
     }
   }
 
-  private extractToken(client: AuthenticatedSocket): string | null {
-    // Try to get token from auth header
+  private extractTokenFromClient(client: AuthenticatedSocket): string | null {
     const authHeader = client.handshake.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       return authHeader.substring(7);
     }
 
-    // Try to get token from query parameters
     const tokenFromQuery = client.handshake.query.token;
     if (typeof tokenFromQuery === 'string') {
       return tokenFromQuery;
     }
 
-    // Try to get token from auth object
     const tokenFromAuth = client.handshake.auth?.token;
     if (typeof tokenFromAuth === 'string') {
       return tokenFromAuth;
@@ -76,14 +74,14 @@ export class WsJwtGuard implements CanActivate {
 
   private async verifyToken(token: string): Promise<any> {
     try {
-      // Use decode instead of verify for external tokens (development mode)
+      // Use decode for external tokens in development
       const payload = this.jwtService.decode(token);
       if (!payload) {
         throw new Error('Invalid token format');
       }
       return payload;
     } catch (error) {
-      this.logger.warn(`Token verification failed:`, error.message);
+      this.logger.warn('Token verification failed:', error.message);
       return null;
     }
   }

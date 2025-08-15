@@ -1,18 +1,26 @@
-import { Entity, Column, CreateDateColumn, ManyToOne, JoinColumn, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+
+import { BaseEntity } from './base.entity';
 import { Conversation } from './conversation.entity';
 import { User } from './user.entity';
 import { MessageContent } from '@domain/value-objects/message-content.vo';
 import { MessageType } from '@domain/value-objects/message-type.vo';
 
 @Entity('messages')
-export class Message {
-  @PrimaryGeneratedColumn({ name: 'message_id' })
-  id: string;
-  @Column({ name: 'conversation_id', type: 'integer' })
+export class Message extends BaseEntity {
+  @Column({ name: 'conversation_id', type: 'uuid' })
   conversationId: string;
 
-  @Column({ name: 'sender_id', type: 'varchar', length: 255 })
+  @Column({ name: 'sender_id', type: 'varchar' })
   senderId: string;
+
+  @ManyToOne(() => Conversation, conversation => conversation.messages, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'conversation_id' })
+  conversation: Conversation;
+
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'sender_id' })
+  sender: User;
 
   @Column({
     type: 'text',
@@ -39,13 +47,5 @@ export class Message {
 
   @Column({ name: 'deleted_at', nullable: true })
   deletedAt?: Date;
-
-  @ManyToOne(() => Conversation, conversation => conversation.messages, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'conversation_id' })
-  conversation: Conversation;
-
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'sender_id' })
-  sender: User;
 
 }

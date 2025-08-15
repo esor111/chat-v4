@@ -1,33 +1,63 @@
-import { IsString, IsNotEmpty, IsOptional, IsArray, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsEnum, IsUUID, MaxLength, ArrayMaxSize } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class SendMessageDto {
+  @ApiProperty({ description: 'Message content' })
   @IsString()
-  @IsNotEmpty()
-  @MinLength(1)
   @MaxLength(4000)
   content: string;
 
+  @ApiPropertyOptional({ description: 'Message type', enum: ['text', 'image', 'file'] })
   @IsOptional()
-  @IsString()
+  @IsEnum(['text', 'image', 'file'])
   message_type?: string = 'text';
 }
 
-export class CreateConversationDto {
+export class CreateDirectConversationDto {
+  @ApiProperty({ description: 'Target user ID' })
   @IsString()
-  @IsNotEmpty()
-  type: 'direct' | 'group' | 'business';
+  @IsUUID()
+  target_user_id: string;
+}
 
-  @IsArray()
-  @IsUUID(4, { each: true })
-  participant_ids: string[];
-
-  @IsOptional()
+export class CreateGroupConversationDto {
+  @ApiProperty({ description: 'Group name' })
   @IsString()
   @MaxLength(100)
-  title?: string;
+  name: string;
+
+  @ApiProperty({ description: 'Participant user IDs', type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  @IsUUID(undefined, { each: true })
+  @ArrayMaxSize(7)
+  participants: string[];
 }
 
 export class MarkAsReadDto {
-  @IsUUID(4)
+  @ApiProperty({ description: 'Message ID to mark as read up to' })
+  @IsString()
+  @IsUUID()
   message_id: string;
+}
+
+export class PaginationQueryDto {
+  @ApiPropertyOptional({ description: 'Number of items to return', default: 20 })
+  @IsOptional()
+  limit?: string;
+
+  @ApiPropertyOptional({ description: 'Number of items to skip', default: 0 })
+  @IsOptional()
+  offset?: string;
+}
+
+export class MessagePaginationQueryDto {
+  @ApiPropertyOptional({ description: 'Number of messages to return', default: 50 })
+  @IsOptional()
+  limit?: string;
+
+  @ApiPropertyOptional({ description: 'Get messages before this message ID' })
+  @IsOptional()
+  @IsUUID()
+  before_message_id?: string;
 }

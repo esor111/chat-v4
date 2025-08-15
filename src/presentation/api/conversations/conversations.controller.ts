@@ -6,7 +6,6 @@ import {
   Param,
   Query,
   UseGuards,
-  Request,
   HttpStatus,
   HttpException,
   Inject,
@@ -14,12 +13,7 @@ import {
 import { CurrentUser } from "@infrastructure/auth/decorators/current-user.decorator";
 import {
   ApiTags,
-  ApiOperation,
-  ApiResponse,
   ApiBearerAuth,
-  ApiParam,
-  ApiQuery,
-  ApiBody,
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@infrastructure/auth/guards/jwt-auth.guard";
 import { IConversationRepository } from "@domain/repositories/conversation.repository.interface";
@@ -27,7 +21,13 @@ import { IParticipantRepository } from "@domain/repositories/participant.reposit
 import { IMessageRepository } from "@domain/repositories/message.repository.interface";
 import { SimpleProfileCacheService } from "@infrastructure/profile/simple-profile-cache.service";
 import { WebSocketMessageService } from "@application/services/websocket-message.service";
-import { CreateConversationDto, SendMessageDto } from "./dto/conversation.dto";
+import { ConversationService } from "@application/services/conversation.service";
+import { 
+  SendMessageDto, 
+  CreateDirectConversationDto,
+  PaginationQueryDto,
+  MessagePaginationQueryDto 
+} from "./dto/conversation.dto";
 
 @ApiTags("conversations")
 @Controller("api/conversations")
@@ -42,7 +42,8 @@ export class ConversationsController {
     @Inject("IMessageRepository")
     private readonly messageRepository: IMessageRepository,
     private readonly profileService: SimpleProfileCacheService,
-    private readonly messageService: WebSocketMessageService
+    private readonly messageService: WebSocketMessageService,
+    private readonly conversationService: ConversationService
   ) {}
 
   /**
@@ -51,76 +52,18 @@ export class ConversationsController {
   @Get()
   async getConversations(
     @CurrentUser() user: any,
-    @Query("limit") limit?: string,
-    @Query("offset") offset?: string
+    @Query() query: PaginationQueryDto
   ) {
     try {
       const userId = user.userId;
-      const limitNum = limit ? parseInt(limit, 10) : 20;
-      const offsetNum = offset ? parseInt(offset, 10) : 0;
+      const limitNum = query.limit ? parseInt(query.limit, 10) : 20;
+      const offsetNum = query.offset ? parseInt(query.offset, 10) : 0;
 
-      // Get user's conversations directly
-      const conversations = await this.conversationRepository.findByParticipant(userId);
-
-      // Get all participants for these conversations
-      const allParticipants = await Promise.all(
-        conversations.map((conv) =>
-          this.participantRepository.findByConversation(conv.id)
-        )
-      );
-
-      // Get unique user IDs for profile fetching
-      const userIds = new Set<string>();
-      allParticipants.flat().forEach((p) => userIds.add(p.userId));
-
-      // Fetch profiles
-      const profiles = await this.profileService.getBatchProfiles({
-        user_ids: Array.from(userIds),
-      });
-
-      // Build response
-      const conversationsWithDetails = conversations.map(
-        (conversation, index) => {
-          const convParticipants = allParticipants[index];
-          const otherParticipants = convParticipants.filter(
-            (p) => p.userId !== userId
-          );
-
-          // Get profile info for other participants
-          const participantProfiles = otherParticipants.map((p) => {
-            const profile =
-              profiles.users.find((u) => u.id === p.userId) ||
-              profiles.businesses.find((b) => b.id === p.userId);
-            return {
-              userId: p.userId,
-              role: p.role.value,
-              name: profile?.name || "Unknown User",
-              avatar_url: profile?.avatar_url,
-              user_type: profile?.user_type || "user",
-            };
-          });
-
-          const userParticipant = convParticipants.find(
-            (p) => p.userId === userId
-          );
-
-          return {
-            conversation_id: conversation.id,
-            type: conversation.type.value,
-            last_activity: conversation.lastActivity,
-            last_message_id: conversation.lastMessageId,
-            participants: participantProfiles,
-            unread_count: 0, // TODO: Calculate unread count
-            is_muted: userParticipant?.isMuted || false,
-          };
-        }
-      );
-
-      return {
-        conversations: conversationsWithDetails,
-        total: conversations.length,
-      };
+      return await this.conversationService.getUserConversations(userId, limitNum, offsetNum);
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         "Failed to fetch conversations",
         HttpStatus.INTERNAL_SERVER_ERROR
@@ -138,63 +81,7 @@ export class ConversationsController {
   ) {
     try {
       const userId = user.userId;
-      const convId = conversationId;
-
-      // Check if user is participant
-      const participant =
-        await this.participantRepository.findByConversationAndUser(
-          convId,
-          userId
-        );
-
-      if (!participant) {
-        throw new HttpException(
-          "Conversation not found or access denied",
-          HttpStatus.NOT_FOUND
-        );
-      }
-
-      // Get conversation
-      const conversation = await this.conversationRepository.findById(convId);
-      if (!conversation) {
-        throw new HttpException("Conversation not found", HttpStatus.NOT_FOUND);
-      }
-
-      // Get all participants
-      const participants = await this.participantRepository.findByConversation(
-        convId
-      );
-      const userIds = participants.map((p) => p.userId);
-
-      // Fetch profiles
-      const profiles = await this.profileService.getBatchProfiles({
-        user_ids: userIds,
-      });
-
-      // Build participant details
-      const participantDetails = participants.map((p) => {
-        const profile =
-          profiles.users.find((u) => u.id === p.userId) ||
-          profiles.businesses.find((b) => b.id === p.userId);
-        return {
-          userId: p.userId,
-          role: p.role.value,
-          name: profile?.name || "Unknown User",
-          avatar_url: profile?.avatar_url,
-          user_type: profile?.user_type || "user",
-          is_muted: p.isMuted,
-          last_read_message_id: p.lastReadMessageId,
-        };
-      });
-
-      return {
-        conversation_id: conversation.id,
-        type: conversation.type.value,
-        created_at: conversation.createdAt,
-        last_activity: conversation.lastActivity,
-        last_message_id: conversation.lastMessageId,
-        participants: participantDetails,
-      };
+      return await this.conversationService.getConversationDetails(conversationId, userId);
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -213,14 +100,13 @@ export class ConversationsController {
   async getMessages(
     @Param("id") conversationId: string,
     @CurrentUser() user: any,
-    @Query("limit") limit?: string,
-    @Query("before_message_id") beforeMessageId?: string
+    @Query() query: MessagePaginationQueryDto
   ) {
     try {
       const userId = user.userId;
       const convId = conversationId;
-      const limitNum = limit ? parseInt(limit, 10) : 50;
-      const beforeId = beforeMessageId || undefined;
+      const limitNum = query.limit ? parseInt(query.limit, 10) : 50;
+      const beforeId = query.before_message_id || undefined;
 
       // Check if user is participant
       const participant =
@@ -325,30 +211,100 @@ export class ConversationsController {
   }
 
   /**
-   * Create new conversation
+   * Create direct conversation
    */
-  @Post()
-  async createConversation(
-    @Body() createConversationDto: CreateConversationDto,
-    @CurrentUser() user: any
+  @Post('direct')
+  async createDirectConversation(
+    @Body() createDirectDto: CreateDirectConversationDto,
+    @CurrentUser() user: any,
   ) {
     try {
       const userId = user.userId;
+      const targetUserId = createDirectDto.target_user_id;
 
-      // TODO: Implement conversation creation logic
-      // This would involve creating the conversation and adding participants
+      const result = await this.conversationService.createDirectConversation(userId, targetUserId);
+      
+      return {
+        ...result,
+        message: 'Direct conversation created successfully',
+      };
 
-      throw new HttpException(
-        "Conversation creation not yet implemented",
-        HttpStatus.NOT_IMPLEMENTED
-      );
     } catch (error) {
+      console.error('Failed to create direct conversation:', error);
       if (error instanceof HttpException) {
         throw error;
       }
       throw new HttpException(
-        "Failed to create conversation",
-        HttpStatus.INTERNAL_SERVER_ERROR
+        'Failed to create direct conversation',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Create group conversation
+   */
+  @Post('group')
+  async createGroupConversation(
+    @Body() body: { name: string; participants: string[] },
+    @CurrentUser() user: any,
+  ) {
+    try {
+      const userId = user.userId;
+      const { participants } = body;
+
+      if (!participants || participants.length === 0) {
+        throw new HttpException(
+          'At least one participant is required',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (participants.length > 7) {
+        throw new HttpException(
+          'Maximum 7 participants allowed (8 total including creator)',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Create group conversation
+      const conversation = await this.conversationRepository.save({
+        type: { value: 'group' },
+        createdAt: new Date(),
+        lastActivity: new Date(),
+      } as any);
+
+      // Add creator as admin
+      await this.participantRepository.save({
+        conversationId: conversation.id,
+        userId: userId,
+        role: { value: 'admin' },
+        isMuted: false,
+      } as any);
+
+      // Add other participants as members
+      for (const participantId of participants) {
+        await this.participantRepository.save({
+          conversationId: conversation.id,
+          userId: participantId,
+          role: { value: 'member' },
+          isMuted: false,
+        } as any);
+      }
+
+      return {
+        conversation_id: conversation.id,
+        message: 'Group conversation created successfully',
+      };
+
+    } catch (error) {
+      console.error('Failed to create group conversation:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Failed to create group conversation',
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
